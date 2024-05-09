@@ -1,8 +1,32 @@
 [package]
-name = "o2_chrome_server"
+name = "o2_report_generator"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+actix-web = "4.5"
+anyhow = "1.0"
+chromiumoxide = { git = "https://github.com/mattsse/chromiumoxide", features = [
+  "tokio-runtime",
+  "_fetcher-rusttls-tokio",
+], default-features = false, rev = "348967500868c2b5dfcb3930fe483b2ff17b35ff" }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+dotenv_config = "0.1"
+dotenvy = "0.15"
+env_logger = "0.10"
+futures = "0.3"
+lettre = { version = "0.11", default-features = false, features = [
+  "builder",
+  "hostname",
+  "smtp-transport",
+  "pool",
+  "tokio1",
+  "tokio1-rustls-tls",
+] }
+log = "0.4"
+once_cell = "1.17"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
