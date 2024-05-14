@@ -162,8 +162,6 @@ pub struct TokioConsole {
 
 #[derive(EnvConfig)]
 pub struct Chrome {
-    #[env_config(name = "ZO_CHROME_ENABLED", default = false)]
-    pub chrome_enabled: bool,
     #[env_config(name = "ZO_CHROME_PATH", default = "")]
     pub chrome_path: String,
     #[env_config(name = "ZO_CHROME_CHECK_DEFAULT_PATH", default = true)]
@@ -184,8 +182,6 @@ pub struct Chrome {
 
 #[derive(EnvConfig)]
 pub struct Smtp {
-    #[env_config(name = "ZO_SMTP_ENABLED", default = false)]
-    pub smtp_enabled: bool,
     #[env_config(name = "ZO_SMTP_HOST", default = "localhost")]
     pub smtp_host: String,
     #[env_config(name = "ZO_SMTP_PORT", default = 25)]
@@ -204,15 +200,15 @@ pub struct Smtp {
 
 #[derive(EnvConfig)]
 pub struct Auth {
-    #[env_config(name = "ZO_REPORT_USER_EMAIL")]
+    #[env_config(name = "ZO_REPORT_USER_EMAIL", default = "root@example.com")]
     pub user_email: String,
-    #[env_config(name = "ZO_REPORT_USER_PASSWORD")]
+    #[env_config(name = "ZO_REPORT_USER_PASSWORD", default = "Complexpass#123")]
     pub user_password: String,
 }
 
 #[derive(EnvConfig)]
 pub struct Http {
-    #[env_config(name = "ZO_HTTP_PORT", default = 5085)]
+    #[env_config(name = "ZO_HTTP_PORT", default = 5090)]
     pub port: u16,
     #[env_config(name = "ZO_HTTP_ADDR", default = "127.0.0.1")]
     pub addr: String,
@@ -238,7 +234,7 @@ pub struct Grpc {
 
 #[derive(EnvConfig)]
 pub struct Common {
-    #[env_config(name = "ZO_APP_NAME", default = "openobserve_chrome_server")]
+    #[env_config(name = "ZO_APP_NAME", default = "openobserve_report_generator")]
     pub app_name: String,
     #[env_config(name = "ZO_O2_APP_URL", default = "http://localhost:5080/web")]
     pub o2_web_uri: String,

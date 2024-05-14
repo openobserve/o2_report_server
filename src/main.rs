@@ -13,16 +13,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use actix_web::{dev::ServerHandle, web, App, HttpServer};
+use actix_web::{dev::ServerHandle, middleware, web, App, HttpServer};
 use o2_report_generator::{
-    config::CONFIG,
-    router::{generate_report, healthz},
+    config::{self, CONFIG},
+    router::{healthz, send_report},
 };
 use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info");
+    }
     env_logger::init();
+
+    // Locate or fetch chromium
+    _ = config::get_chrome_launch_options().await;
+
     log::info!("starting o2 chrome server");
     let haddr: SocketAddr = if CONFIG.http.ipv6_enabled {
         format!("[::]:{}", CONFIG.http.port).parse()?
@@ -36,7 +43,11 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     log::info!("starting HTTP server at: {}", haddr);
     let server = HttpServer::new(move || {
-        App::new().service(web::scope("/api").service(generate_report).service(healthz))
+        App::new()
+            .service(web::scope("/api").service(send_report).service(healthz))
+            .wrap(middleware::Logger::new(
+                r#"%a "%r" %s %b "%{Content-Length}i" "%{Referer}i" "%{User-Agent}i" %T"#,
+            ))
     })
     .bind(haddr)?
     .run();
@@ -46,6 +57,7 @@ async fn main() -> Result<(), anyhow::Error> {
         graceful_shutdown(handle).await;
     });
     server.await?;
+    log::info!("HTTP server stopped");
     Ok(())
 }
 

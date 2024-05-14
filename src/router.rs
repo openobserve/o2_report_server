@@ -51,8 +51,8 @@ pub async fn healthz() -> Result<ActixHttpResponse, Error> {
     Ok(ActixHttpResponse::Ok().body("Server up and running"))
 }
 
-#[put("/{org_id}/reports/{name}/generate")]
-pub async fn generate_report(
+#[put("/{org_id}/reports/{name}/send")]
+pub async fn send_report(
     report: web::Json<Report>,
     path: web::Path<(String, String)>,
     req: HttpRequest,
@@ -65,7 +65,7 @@ pub async fn generate_report(
         None => "Europe/London",
     };
     let (pdf_data, email_dashboard_url) = match crate::generate_report(
-        &report.dashboard,
+        &report.dashboards[0],
         &org_id,
         &CONFIG.auth.user_email,
         &CONFIG.auth.user_password,
@@ -86,7 +86,7 @@ pub async fn generate_report(
         &pdf_data,
         crate::EmailDetails {
             dashb_url: email_dashboard_url,
-            ..report.email
+            ..report.email_details
         },
         crate::SmtpConfig {
             from_email: CONFIG.smtp.smtp_from_email.to_string(),

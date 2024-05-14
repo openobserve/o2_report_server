@@ -44,8 +44,8 @@ pub struct EmailDetails {
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
 pub struct Report {
-    pub dashboard: ReportDashboard,
-    pub email: EmailDetails,
+    pub dashboards: Vec<ReportDashboard>,
+    pub email_details: EmailDetails,
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
@@ -103,11 +103,6 @@ pub async fn generate_report(
     web_url: &str,
     timezone: &str,
 ) -> Result<(Vec<u8>, String), anyhow::Error> {
-    // Check if Chrome is enabled, otherwise don't save the report
-    if !CONFIG.chrome.chrome_enabled {
-        return Err(anyhow::anyhow!("Chrome not enabled"));
-    }
-
     let dashboard_id = &dashboard.dashboard;
     let folder_id = &dashboard.folder;
 
@@ -237,7 +232,7 @@ pub async fn generate_report(
     // Wait for navigation does not really wait until it is fully loaded
     page.wait_for_navigation().await?;
 
-    log::info!("waiting for data to load for dashboard {dashboard_id}");
+    log::debug!("waiting for data to load for dashboard {dashboard_id}");
 
     // If the span element is not rendered yet, capture whatever is loaded till now
     if let Err(e) = wait_for_panel_data_load(&page).await {
@@ -335,7 +330,6 @@ async fn send_email(
 pub async fn wait_for_panel_data_load(page: &Page) -> Result<(), anyhow::Error> {
     let start = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(CONFIG.chrome.chrome_sleep_secs.into());
-    log::info!("waiting for headless data to load");
     loop {
         if page
             .find_element("span#dashboardVariablesAndPanelsDataLoaded")
