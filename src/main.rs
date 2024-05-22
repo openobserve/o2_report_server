@@ -31,6 +31,11 @@ async fn main() -> Result<(), anyhow::Error> {
     _ = config::get_chrome_launch_options().await;
 
     log::info!("starting o2 chrome server");
+
+    if CONFIG.auth.user_email.is_empty() || CONFIG.auth.user_password.is_empty() {
+        panic!("Report User email and password must be specified");
+    }
+
     let haddr: SocketAddr = if CONFIG.http.ipv6_enabled {
         format!("[::]:{}", CONFIG.http.port).parse()?
     } else {

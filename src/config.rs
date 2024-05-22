@@ -200,9 +200,9 @@ pub struct Smtp {
 
 #[derive(EnvConfig)]
 pub struct Auth {
-    #[env_config(name = "ZO_REPORT_USER_EMAIL", default = "root@example.com")]
+    #[env_config(name = "ZO_REPORT_USER_EMAIL", default = "")]
     pub user_email: String,
-    #[env_config(name = "ZO_REPORT_USER_PASSWORD", default = "Complexpass#123")]
+    #[env_config(name = "ZO_REPORT_USER_PASSWORD", default = "")]
     pub user_password: String,
 }
 
