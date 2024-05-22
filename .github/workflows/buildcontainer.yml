@@ -1,0 +1,202 @@
+
+name: Build Docker Image
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+    - "*"
+
+env:
+    AWS_REGION: us-east-1
+
+jobs:
+    build_image:
+      name: build_image
+      permissions:
+        id-token: write
+        contents: read
+      runs-on: 'ubicloud-standard-4'
+      steps:
+        - name: Remove unused tools
+          run: |
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf /opt/ghc
+            sudo rm -rf "/usr/local/share/boost"
+            sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+  
+        - name: Clone the current repo
+          uses: actions/checkout@v4
+          with:
+            repository: ${{ github.event.pull_request.head.repo.full_name || github.repository}}
+            ref: ${{ github.event.pull_request.head.ref || github.ref }}
+            fetch-depth: 0
+            fetch-tags: true
+  
+        - name: Setup Rust Toolchain
+          uses: dtolnay/rust-toolchain@master
+          with:
+            toolchain: nightly-2024-03-02
+            
+        - uses: Swatinem/rust-cache@v2
+          with:
+            cache-on-failure: true
+        
+        - name: Print rustc cfg
+          run: rustc --print cfg
+          
+        - name: Build and run binary
+          run: |
+            cargo build --release --target x86_64-unknown-linux-gnu
+            mkdir -p bin
+            mv target/x86_64-unknown-linux-gnu/release/o2_report_generator bin/report-generator
+     
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-region: ${{ env.AWS_REGION }}
+            role-to-assume: arn:aws:iam::058694856476:role/GitHubActionsRole
+            role-session-name: GithubActionsSession
+  
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v2          
+          with:
+            registry-type: public
+  
+        - name: Set up QEMU
+          uses: docker/setup-qemu-action@v3
+         
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Set GIT_TAG env
+          run: |
+            echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+            echo "GIT_HASH=$(git rev-parse --short=7 HEAD)" >> $GITHUB_ENV
+     
+        - name: Build and push
+          uses: docker/build-push-action@v5
+          with:
+            file: Dockerfile
+            context: .
+            tags: |
+              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}-amd64
+            push: true
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+            platforms: linux/amd64
+
+    build_pr_image_arm:
+      name: build_pr_image_arm
+      permissions:
+        id-token: write
+        contents: read
+      runs-on: 'ubicloud-standard-4-arm'
+      steps:
+        - name: Remove unused tools
+          run: |
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf /opt/ghc
+            sudo rm -rf "/usr/local/share/boost"
+            sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+  
+        - name: Clone the current repo
+          uses: actions/checkout@v4
+          with:
+            repository: ${{ github.event.pull_request.head.repo.full_name || github.repository}}
+            ref: ${{ github.event.pull_request.head.ref || github.ref }}
+            fetch-depth: 0
+            fetch-tags: true
+  
+        - name: Setup Rust Toolchain
+          uses: dtolnay/rust-toolchain@master
+          with:
+            toolchain: nightly-2024-03-02
+            
+        - uses: Swatinem/rust-cache@v2
+          with:
+            cache-on-failure: true
+        
+        - name: Print rustc cfg
+          run: rustc --print cfg
+          
+        - name: Build and run binary
+          run: |
+            cargo build --release --target aarch64-unknown-linux-gnu
+            mkdir -p bin
+            mv target/aarch64-unknown-linux-gnu/release/o2_report_generator bin/report-generator
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-region: ${{ env.AWS_REGION }}
+            role-to-assume: arn:aws:iam::058694856476:role/GitHubActionsRole
+            role-session-name: GithubActionsSession
+  
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v2          
+          with:
+            registry-type: public
+         
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Set GIT_TAG env
+          run: |
+            echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+            echo "GIT_HASH=$(git rev-parse --short=7 HEAD)" >> $GITHUB_ENV
+     
+        - name: Build and push
+          uses: docker/build-push-action@v5
+          with:
+            file: Dockerfile
+            context: .
+            tags: |
+              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}-arm64
+            push: true
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+            platforms: linux/arm64
+        
+    build:
+      needs: [build_image, build_pr_image_arm]
+      runs-on: ubicloud-standard-2-arm
+      permissions:
+        id-token: write
+        contents: read
+      steps:
+        - name: Clone the current repo
+          uses: actions/checkout@v4
+          with:
+            repository: ${{ github.event.pull_request.head.repo.full_name || github.repository}}
+            ref: ${{ github.event.pull_request.head.ref || github.ref }}
+            fetch-depth: 0
+            fetch-tags: true
+        - name: Set GIT_TAG env
+          run: |
+            echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+            echo "GIT_HASH=$(git rev-parse --short=7 HEAD)" >> $GITHUB_ENV
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            aws-region: ${{ env.AWS_REGION }}
+            role-to-assume: arn:aws:iam::058694856476:role/GitHubActionsRole
+            role-session-name: GithubActionsSession
+  
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v2          
+          with:
+            registry-type: public
+
+        - uses: int128/docker-manifest-create-action@v2
+          with:
+            tags: |
+              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}
+            sources: |
+              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}-amd64
+              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}-arm64
+              
