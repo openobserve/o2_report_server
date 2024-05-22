@@ -127,7 +127,9 @@ pub async fn generate_report(
     });
 
     log::debug!("Navigating to web url: {}", &web_url);
-    let page = browser.new_page(&format!("{web_url}/login")).await?;
+    let page = browser
+        .new_page(&format!("{web_url}/login?login_as_internal_user=true"))
+        .await?;
     page.disable_log().await?;
     log::debug!("headless: new page created");
 
