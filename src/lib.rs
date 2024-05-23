@@ -60,10 +60,12 @@ pub struct ReportDashboard {
     pub timerange: ReportTimerange,
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone)]
+#[derive(Serialize, Debug, Default, Deserialize, Clone)]
 pub struct ReportDashboardVariable {
-    pub name: String,
+    pub key: String,
     pub value: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
 }
 
 #[derive(Serialize, Debug, Default, Deserialize, Clone)]
@@ -105,6 +107,11 @@ pub async fn generate_report(
 ) -> Result<(Vec<u8>, String), anyhow::Error> {
     let dashboard_id = &dashboard.dashboard;
     let folder_id = &dashboard.folder;
+
+    let mut dashb_vars = "".to_string();
+    for variable in dashboard.variables.iter() {
+        dashb_vars = format!("{}&var-{}={}", dashb_vars, variable.key, variable.value);
+    }
 
     if dashboard.tabs.is_empty() {
         return Err(anyhow::anyhow!("Atleast one tab is required"));
@@ -163,8 +170,9 @@ pub async fn generate_report(
             let period = &timerange.period;
             let (time_duration, time_unit) = period.split_at(period.len() - 1);
             let dashb_url = format!(
-                "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&period={period}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true",
+                "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&period={period}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
             );
+            log::debug!("dashb_url for dashboard {folder_id}/{dashboard_id}: {dashb_url}");
 
             let time_duration: i64 = time_duration.parse()?;
             let end_time = chrono::Utc::now().timestamp_micros();
@@ -207,15 +215,17 @@ pub async fn generate_report(
             };
 
             let email_dashb_url = format!(
-                "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&from={start_time}&to={end_time}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true",
+                "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&from={start_time}&to={end_time}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
             );
             (dashb_url, email_dashb_url)
         }
         ReportTimerangeType::Absolute => {
             let url = format!(
-                "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&from={}&to={}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true",
+                "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&from={}&to={}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
                 &timerange.from, &timerange.to
             );
+            log::debug!("dashb_url for dashboard {folder_id}/{dashboard_id}: {url}");
+
             (url.clone(), url)
         }
     };

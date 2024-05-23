@@ -69,7 +69,7 @@ pub async fn send_report(
         &org_id,
         &CONFIG.auth.user_email,
         &CONFIG.auth.user_password,
-        &CONFIG.common.o2_web_uri,
+        &report.email_details.dashb_url,
         timezone,
     )
     .await
