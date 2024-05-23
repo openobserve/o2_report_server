@@ -1,6 +1,6 @@
 # O2 Report Server
 
-To setup reports `ZO_CHROME_ENABLED` and `ZO_SMTP_ENABLED` must be true, and `ZO_REPORT_USER_NAME`, `ZO_REPORT_USER_PASSWORD` must be specified.  
+To setup reports `ZO_REPORT_USER_NAME`, `ZO_REPORT_USER_PASSWORD` must be specified.  
 Following are the ENVs related to chrome and SMTP. * means required -
 
 **ENVs**
@@ -57,7 +57,7 @@ Following are the ENVs related to chrome and SMTP. * means required -
 
 <td>`ZO_CHROME_SLEEP_SECS`</td>
 
-<td>Specify the number of timeout seconds the headless chrome will wait until all the dashboard data is loaded. Default is `20` seconds.</td>
+<td>Specify the number of timeout in seconds the headless chrome will wait until all the dashboard data is loaded. Default is `20` seconds.</td>
 
 </tr>
 
@@ -143,9 +143,6 @@ Following are the ENVs related to chrome and SMTP. * means required -
 ZO_REPORT_USER_NAME = "root@example.com"
 ZO_REPORT_USER_PASSWORD = "Complexpass#123"
 
-# Required. The frontend URL where headless chrome will go for login.
-ZO_WEB_URL = "http://localhost:5080"
-
 # SMTP
 ZO_SMTP_ENABLED = "true"
 ZO_SMTP_HOST = "smtp.gmail.com"
@@ -156,7 +153,6 @@ ZO_SMTP_FROM_EMAIL = "mail@mail.com"
 ZO_SMTP_ENCRYPTION = "ssltls"
 
 # Chrome
-ZO_CHROME_ENABLED = "true"
 
 # Set the chromium path
 # ZO_CHROME_PATH = ".\download\win64-1045629\chrome-win\chrome.exe"
@@ -166,6 +162,12 @@ ZO_CHROME_CHECK_DEFAULT_PATH = false
 
 ZO_CHROME_WINDOW_WIDTH = 1440
 ZO_CHROME_WINDOW_HEIGHT = 730
+```
+
+On the OpenObserve part, you need to include the below ENVs -
+```
+ZO_WEB_URL = "http://localhost:5080"
+ZO_REPORT_SERVER_URL = http://localhost:5090/api
 ```
 
 **Note:** If you don’t specify `ZO_CHROME_CHECK_DEFAULT_PATH` ENV, then before downloading chromium, it will look for chromium in default locations -
