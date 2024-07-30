@@ -1,0 +1,128 @@
+on:
+  push:
+    tags:
+      - "v*.*.*"
+name: Release
+env:
+  RUST_TOOLCHAIN: nightly-2024-07-07
+jobs:
+  build:
+    name: Build binary
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64-unknown-linux-gnu
+            os: ubuntu-2004-8-cores
+            features: ""
+            file_name: report-generator-${{ github.ref_name }}-linux-amd64
+            file_ext: .tar.gz
+          - arch: x86_64-unknown-linux-musl
+            os: ubuntu-2004-8-cores
+            features: ""
+            file_name: report-generator-${{ github.ref_name }}-linux-amd64-musl
+            file_ext: .tar.gz
+          - arch: aarch64-unknown-linux-gnu
+            os: ubuntu-2004-8-cores
+            features: ""
+            file_name: report-generator-${{ github.ref_name }}-linux-arm64
+            file_ext: .tar.gz
+          - arch: x86_64-pc-windows-msvc
+            os: windows-2022-16-cores
+            features: ""
+            file_name: report-generator-${{ github.ref_name }}-windows-amd64
+            file_ext: .zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Cache cargo assets
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ matrix.arch }}-build-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install dependencies for linux
+        if: contains(matrix.arch, 'linux-gnu')
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install libssl-dev pkg-config g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+      
+      - name: Install dependencies for linux
+        if: contains(matrix.arch, 'linux-musl')
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install libssl-dev pkg-config g++-aarch64-linux-gnu gcc-aarch64-linux-gnu musl-dev musl-tools
+          sudo ln -s "/usr/bin/g++" "/usr/bin/musl-g++"
+
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          target: ${{ matrix.arch }}
+          override: true
+
+      - name: Output package versions
+        run: protoc --version ; cargo version ; rustc --version ; gcc --version ; g++ --version
+
+      - name: Print rustc cfg
+        run: rustc -C target-cpu=native --print cfg
+
+      - name: Run cargo build
+        if: contains(matrix.file_name, '-simd') == false
+        run: cargo build ${{ matrix.features }} --profile release --target ${{ matrix.arch }}
+
+      - name: Calculate checksum and rename binary
+        if: contains(matrix.arch, 'windows') == false
+        shell: bash
+        run: |
+          cd target/${{ matrix.arch }}/release
+          cp o2_report_generator report-generator
+          chmod +x report-generator
+          tar -zcvf ${{ matrix.file_name }}.tar.gz report-generator
+          echo $(shasum -a 256 ${{ matrix.file_name }}.tar.gz | cut -f1 -d' ') > ${{ matrix.file_name }}.tar.gz.sha256sum
+
+      - name: Calculate checksum and rename binary for windows
+        if: contains(matrix.arch, 'windows')
+        shell: bash
+        run: |
+          cd target/${{ matrix.arch }}/release
+          cp o2_report_generator.exe report-generator.exe
+          7z a -tzip ${{ matrix.file_name }}.zip report-generator.exe
+          certutil.exe -hashfile ${{ matrix.file_name }}.zip sha256|head -n 2|tail -n 1 > ${{ matrix.file_name }}.zip.sha256sum
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file_name }}
+          path: target/${{ matrix.arch }}/release/${{ matrix.file_name }}${{ matrix.file_ext }}
+
+      - name: Upload checksum of artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file_name }}.sha256sum
+          path: target/${{ matrix.arch }}/release/${{ matrix.file_name }}${{ matrix.file_ext }}.sha256sum
+  release:
+    name: Release artifacts
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Release ${{ github.ref_name }}"
+          generate_release_notes: true
+          files: |
+            **/report-generator-*
