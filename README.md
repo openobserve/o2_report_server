@@ -140,17 +140,16 @@ Following are the ENVs related to chrome and SMTP. * means required -
 **Example ENV setup**
 
 ```
-ZO_REPORT_USER_NAME = "root@example.com"
+ZO_REPORT_USER_EMAIL = "root@example.com"
 ZO_REPORT_USER_PASSWORD = "Complexpass#123"
 
 # SMTP
-ZO_SMTP_ENABLED = "true"
 ZO_SMTP_HOST = "smtp.gmail.com"
-ZO_SMTP_PORT = 465
+ZO_SMTP_PORT = 465 # Or 587
 ZO_SMTP_USER_NAME = "mail@mail.com"
 ZO_SMTP_PASSWORD = "somepassword"
 ZO_SMTP_FROM_EMAIL = "mail@mail.com"
-ZO_SMTP_ENCRYPTION = "ssltls"
+ZO_SMTP_ENCRYPTION = "ssltls" # Or "starttls"
 
 # Chrome
 
@@ -167,7 +166,9 @@ ZO_CHROME_WINDOW_HEIGHT = 730
 On the OpenObserve part, you need to include the below ENVs -
 ```
 ZO_WEB_URL = "http://localhost:5080"
-ZO_REPORT_SERVER_URL = http://localhost:5090/api
+ZO_REPORT_SERVER_URL = http://localhost:5090
+# And if ZO_BASE_URI is present, then that also must be specified
+# ZO_BASE_URI = "/abc"
 ```
 
 **Note:** If you don’t specify `ZO_CHROME_CHECK_DEFAULT_PATH` ENV, then before downloading chromium, it will look for chromium in default locations -
