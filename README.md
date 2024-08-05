@@ -1,6 +1,6 @@
 # O2 Report Server
 
-To setup reports `ZO_REPORT_USER_NAME`, `ZO_REPORT_USER_PASSWORD` must be specified.  
+To setup reports `ZO_REPORT_USER_EMAIL`, `ZO_REPORT_USER_PASSWORD` must be specified.  
 Following are the ENVs related to chrome and SMTP. * means required -
 
 **ENVs**
@@ -41,7 +41,7 @@ Following are the ENVs related to chrome and SMTP. * means required -
 
 <td>`ZO_CHROME_DOWNLOAD_PATH`</td>
 
-<td>If chromium can not be found in default locations and also `ZO_CHROME_PATH` is not specified, it downloads the system specific chromium in the given path. Default is `./download` (gitignored). `chromium` is downloaded for the first time only, afterwords, `chromium` is fetched from the given path. If there is any error regarding download of `chromium`, delete the download folder as it might be in a bad state.</td>
+<td>If chromium can not be found in default locations and also `ZO_CHROME_PATH` is not specified, it downloads the system specific chromium in the given path. Default is `./data/download` (gitignored). `chromium` is downloaded for the first time only, afterwords, `chromium` is fetched from the given path. If there is any error regarding download of `chromium`, delete the download folder as it might be in a bad state.</td>
 
 </tr>
 
@@ -156,8 +156,8 @@ ZO_SMTP_ENCRYPTION = "ssltls" # Or "starttls"
 # Set the chromium path
 # ZO_CHROME_PATH = ".\download\win64-1045629\chrome-win\chrome.exe"
 
-# Or the simplest way is to not specify chrome path and instead use the below env. It will automatically download system specific chromium in the `./download` folder.
-ZO_CHROME_CHECK_DEFAULT_PATH = false
+# It will automatically download system specific chromium in the `./download` folder.
+# ZO_CHROME_CHECK_DEFAULT_PATH = false
 
 ZO_CHROME_WINDOW_WIDTH = 1440
 ZO_CHROME_WINDOW_HEIGHT = 730
@@ -178,4 +178,6 @@ ZO_REPORT_SERVER_URL = http://localhost:5090
 3.  (Windows) Registry
 4.  (Windows & MacOS) Usual installations paths
 
-Sometimes the chromium in default paths may give permission error, so turning this ENV off forces the application to download the chromium at the specified path which is the simplest way to get started.
+So turning this ENV off forces the application to download the chromium at the specified path. Some caveats of the auto download feature -
+- Does not work on linux arm platform.
+- Only the chromium is downloaded, and it expects all the dependency shared libraries (e.g. libatk-bridge-2.0.so.0, libatk-1.0.so.0 etc.) required for chrome to run to be already present in the system.
