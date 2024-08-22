@@ -133,12 +133,12 @@ pub async fn generate_report(
         }
     });
 
-    log::debug!("Navigating to web url: {}", &web_url);
+    log::info!("Navigating to web url: {}", &web_url);
     let page = browser
         .new_page(&format!("{web_url}/login?login_as_internal_user=true"))
         .await?;
     page.disable_log().await?;
-    log::debug!("headless: new page created");
+    log::info!("headless: new page created");
 
     page.find_element("input[type='email']")
         .await?
@@ -146,7 +146,7 @@ pub async fn generate_report(
         .await?
         .type_str(user_id)
         .await?;
-    log::debug!("headless: email input filled");
+    log::info!("headless: email input filled");
 
     page.find_element("input[type='password']")
         .await?
@@ -156,7 +156,7 @@ pub async fn generate_report(
         .await?
         .press_key("Enter")
         .await?;
-    log::debug!("headless: password input filled");
+    log::info!("headless: password input filled");
 
     // Does not seem to work for single page client application
     page.wait_for_navigation().await?;
@@ -172,7 +172,7 @@ pub async fn generate_report(
             let dashb_url = format!(
                 "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&searchtype=reports&period={period}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
             );
-            log::debug!("dashb_url for dashboard {folder_id}/{dashboard_id}: {dashb_url}");
+            log::info!("dashb_url for dashboard {folder_id}/{dashboard_id}: {dashb_url}");
 
             let time_duration: i64 = time_duration.parse()?;
             let end_time = chrono::Utc::now().timestamp_micros();
@@ -224,27 +224,27 @@ pub async fn generate_report(
                 "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&searchtype=reports&from={}&to={}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
                 &timerange.from, &timerange.to
             );
-            log::debug!("dashb_url for dashboard {folder_id}/{dashboard_id}: {url}");
+            log::info!("dashb_url for dashboard {folder_id}/{dashboard_id}: {url}");
 
             (url.clone(), url)
         }
     };
 
-    log::debug!("headless: going to dash url");
+    log::info!("headless: going to dash url");
     // First navigate to the correct org
     page.goto(&format!("{web_url}/?org_identifier={org_id}"))
         .await?;
     page.wait_for_navigation().await?;
     sleep(Duration::from_secs(2)).await;
-    log::debug!("headless: navigated to the org_id: {org_id}");
+    log::info!("headless: navigated to the org_id: {org_id}");
 
     page.goto(&dashb_url).await?;
-    log::debug!("headless: going to dash url");
+    log::info!("headless: going to dash url");
 
     // Wait for navigation does not really wait until it is fully loaded
     page.wait_for_navigation().await?;
 
-    log::debug!("waiting for data to load for dashboard {dashboard_id}");
+    log::info!("waiting for data to load for dashboard {dashboard_id}");
 
     // If the span element is not rendered yet, capture whatever is loaded till now
     if let Err(e) = wait_for_panel_data_load(&page).await {
