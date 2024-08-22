@@ -139,6 +139,7 @@ pub async fn generate_report(
         .await?;
     page.disable_log().await?;
     log::info!("headless: new page created");
+    tokio::time::sleep(Duration::from_secs(5)).await;
 
     page.find_element("input[type='email']")
         .await?
