@@ -120,8 +120,7 @@ pub async fn generate_report(
     let tab_id = &dashboard.tabs[0];
 
     log::info!("launching browser for dashboard {dashboard_id}");
-    let (mut browser, mut handler) =
-        Browser::launch(get_chrome_launch_options().await.clone()).await?;
+    let (browser, mut handler) = Browser::launch(get_chrome_launch_options().await.clone()).await?;
     log::info!("browser launched");
 
     let handle = tokio::task::spawn(async move {
@@ -288,7 +287,7 @@ pub async fn generate_report(
 
     if let Err(e) = page.find_element("main").await {
         let page_url = page.url().await;
-        browser.close().await?;
+        // browser.close().await?;
         handle.await?;
         return Err(anyhow::anyhow!(
             "[REPORT] main html element not rendered yet for dashboard {dashboard_id}; most likely login failed: current url: {:#?} error: {e}",
@@ -297,7 +296,7 @@ pub async fn generate_report(
     }
     if let Err(e) = page.find_element("div.displayDiv").await {
         let page_url = page.url().await;
-        browser.close().await?;
+        // browser.close().await?;
         handle.await?;
         return Err(anyhow::anyhow!(
             "[REPORT] div.displayDiv element not rendered yet for dashboard {dashboard_id}: current url: {:#?} error: {e}",
@@ -314,7 +313,7 @@ pub async fn generate_report(
         })
         .await?;
 
-    browser.close().await?;
+    // browser.close().await?;
     handle.await?;
     log::debug!("done with headless browser");
     Ok((pdf_data, email_dashb_url))
