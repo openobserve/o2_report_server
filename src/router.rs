@@ -5,7 +5,7 @@ use std::io::Error;
 
 use crate::{
     config::{CONFIG, SMTP_CLIENT},
-    Report,
+    Report, ReportType,
 };
 
 /// HTTP response
@@ -64,6 +64,12 @@ pub async fn send_report(
         Some(v) => v,
         None => "Europe/London",
     };
+
+    let report_type = if report.email_details.recepients.is_empty() {
+        ReportType::Cache
+    } else {
+        ReportType::PDF
+    };
     let (pdf_data, email_dashboard_url) = match crate::generate_report(
         &report.dashboards[0],
         &org_id,
@@ -71,6 +77,7 @@ pub async fn send_report(
         &CONFIG.auth.user_password,
         &report.email_details.dashb_url,
         timezone,
+        report_type.clone(),
     )
     .await
     {
@@ -81,6 +88,13 @@ pub async fn send_report(
                 .json(HttpResponse::internal_server_error(e.to_string())));
         }
     };
+
+    if report_type == ReportType::Cache {
+        log::info!("Dashboard data cached by report {report_name}");
+        return Ok(ActixHttpResponse::Ok().json(HttpResponse::success(format!(
+            "dashboard data cached by report {report_name}"
+        ))));
+    }
 
     match crate::send_email(
         &pdf_data,
