@@ -195,7 +195,7 @@ jobs:
         - uses: int128/docker-manifest-create-action@v2
           with:
             tags: |
-              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}
+              public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}
             sources: |
               public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}-amd64
               public.ecr.aws/zinclabs/report-server:${{ env.GIT_TAG }}-${{ env.GIT_HASH}}-arm64
