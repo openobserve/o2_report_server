@@ -143,7 +143,17 @@ pub async fn generate_report(
     log::info!("Navigating to web url: {web_url}/login?login_as_internal_user=true");
     let page = browser
         .new_page(&format!("{web_url}/login?login_as_internal_user=true"))
-        .await?;
+        .await;
+    if page.is_err() {
+        browser.close().await?;
+        browser.wait().await?;
+        handle.await?;
+        log::error!("Error creating new page in browser for login");
+        return Err(anyhow::anyhow!(
+            "Error creating new page in browser for login"
+        ));
+    }
+    let page = page.unwrap();
     page.disable_log().await?;
     log::info!("headless: new page created");
     sleep(Duration::from_secs(5)).await;
@@ -154,10 +164,15 @@ pub async fn generate_report(
         }
         Err(e) => {
             let page_url = page.url().await;
-            return Err(anyhow::anyhow!(
+            browser.close().await?;
+            browser.wait().await?;
+            handle.await?;
+            let err_msg = format!(
                 "Error finding email input box: current url: {:#?} error: {e}",
                 page_url
-            ));
+            );
+            log::error!("{err_msg}");
+            return Err(anyhow::anyhow!("{err_msg}"));
         }
     }
     log::info!("headless: email input filled");
@@ -173,10 +188,15 @@ pub async fn generate_report(
         }
         Err(e) => {
             let page_url = page.url().await;
-            return Err(anyhow::anyhow!(
+            browser.close().await?;
+            browser.wait().await?;
+            handle.await?;
+            let err_msg = format!(
                 "Error finding password input box: current url: {:#?} error: {e}",
                 page_url
-            ));
+            );
+            log::error!("{err_msg}");
+            return Err(anyhow::anyhow!("{err_msg}"));
         }
     }
     log::info!("headless: password input filled");
@@ -259,8 +279,20 @@ pub async fn generate_report(
 
     log::info!("headless: navigating to organization: {web_url}/?org_identifier={org_id}");
     // First navigate to the correct org
-    page.goto(&format!("{web_url}/?org_identifier={org_id}"))
-        .await?;
+    if let Err(e) = page
+        .goto(&format!("{web_url}/?org_identifier={org_id}"))
+        .await
+    {
+        let page_url = page.url().await;
+        browser.close().await?;
+        browser.wait().await?;
+        handle.await?;
+        log::error!(
+            "Error navigating to organization {org_id}: current uri: {:#?} error: {e}",
+            page_url
+        );
+        return Err(anyhow::anyhow!("{e}"));
+    }
     page.wait_for_navigation().await?;
     sleep(Duration::from_secs(2)).await;
 
@@ -269,6 +301,9 @@ pub async fn generate_report(
 
     if let Err(e) = page.goto(&dashb_url).await {
         let page_url = page.url().await;
+        browser.close().await?;
+        browser.wait().await?;
+        handle.await?;
         log::error!(
             "Error navigating to dashboard url {dashb_url}: current uri: {:#?} error: {e}",
             page_url
