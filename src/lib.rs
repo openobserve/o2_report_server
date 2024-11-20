@@ -410,7 +410,7 @@ async fn send_email(
                 .singlepart(
                     // Only supports PDF for now, attach the PDF
                     lettre::message::Attachment::new(
-                        format!("{}.pdf", email_details.title), // Attachment filename
+                        format!("{}.pdf", sanitize_filename(&email_details.title)), // Attachment filename
                     )
                     .body(pdf_data.to_owned(), ContentType::parse("application/pdf")?),
                 ),
@@ -451,4 +451,11 @@ pub async fn wait_for_panel_data_load(page: &Page) -> Result<Duration, anyhow::E
 
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
+}
+
+fn sanitize_filename(filename: &str) -> String {
+    filename
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == ' ' { c } else { '_' })
+        .collect()
 }
