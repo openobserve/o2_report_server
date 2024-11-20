@@ -409,7 +409,7 @@ async fn send_email(
                 .singlepart(
                     // Only supports PDF for now, attach the PDF
                     lettre::message::Attachment::new(
-                        email_details.title, // Attachment filename
+                        format!("{}.pdf", email_details.title), // Attachment filename
                     )
                     .body(pdf_data.to_owned(), ContentType::parse("application/pdf")?),
                 ),
