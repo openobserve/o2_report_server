@@ -65,7 +65,7 @@ pub async fn send_report(
         None => "Europe/London",
     };
 
-    let report_type = if report.email_details.recepients.is_empty() {
+    let report_type = if report.email_details.recipients.is_empty() {
         ReportType::Cache
     } else {
         ReportType::PDF

@@ -41,7 +41,8 @@ pub struct SmtpConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EmailDetails {
-    pub recepients: Vec<String>,
+    #[serde(alias = "recepients")]
+    pub recipients: Vec<String>,
     pub title: String,
     pub name: String,
     pub message: String,
@@ -383,7 +384,7 @@ async fn send_email(
     config: SmtpConfig,
 ) -> Result<(), anyhow::Error> {
     let mut recepients = vec![];
-    for recepient in &email_details.recepients {
+    for recepient in &email_details.recipients {
         recepients.push(recepient);
     }
 
