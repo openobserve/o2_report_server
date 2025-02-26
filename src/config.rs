@@ -63,6 +63,14 @@ async fn init_chrome_launch_options() -> BrowserConfig {
         browser_config = browser_config.no_sandbox();
     }
 
+    if CONFIG.chrome.chrome_disable_default_args {
+        browser_config = browser_config.disable_default_args();
+    }
+
+    if !CONFIG.chrome.chrome_additional_args.is_empty() {
+        browser_config = browser_config.args(CONFIG.chrome.chrome_additional_args.split(","));
+    }
+
     if !CONFIG.chrome.chrome_path.is_empty() {
         browser_config = browser_config.chrome_executable(CONFIG.chrome.chrome_path.as_str());
     } else {
@@ -178,6 +186,10 @@ pub struct Chrome {
     pub chrome_window_width: u32,
     #[env_config(name = "ZO_CHROME_WINDOW_HEIGHT", default = 730)]
     pub chrome_window_height: u32,
+    #[env_config(name = "ZO_CHROME_ADDITIONAL_ARGS", default = "")]
+    pub chrome_additional_args: String,
+    #[env_config(name = "ZO_CHROME_DISABLE_DEFAULT_ARGS", default = false)]
+    pub chrome_disable_default_args: bool,
 }
 
 #[derive(EnvConfig)]
