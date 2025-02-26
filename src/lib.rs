@@ -169,6 +169,11 @@ pub async fn generate_report(
         }
         Err(e) => {
             let page_url = page.url().await;
+            let err_msg = format!(
+                "Error finding email input box: current url: {:#?} error: {e}",
+                page_url
+            );
+            log::error!("{err_msg}");
             // Take a screenshot before killing the browser to help debug login issues
             take_screenshot(&page, org_id, dashboard_id).await?;
             log::info!("killing browser");
@@ -176,11 +181,6 @@ pub async fn generate_report(
             browser.wait().await?;
             handle.await?;
             browser.kill().await;
-            let err_msg = format!(
-                "Error finding email input box: current url: {:#?} error: {e}",
-                page_url
-            );
-            log::error!("{err_msg}");
             return Err(anyhow::anyhow!("{err_msg}"));
         }
     }
@@ -197,17 +197,17 @@ pub async fn generate_report(
         }
         Err(e) => {
             let page_url = page.url().await;
+            let err_msg = format!(
+                "Error finding password input box: current url: {:#?} error: {e}",
+                page_url
+            );
+            log::error!("{err_msg}");
             take_screenshot(&page, org_id, dashboard_id).await?;
             log::info!("killing browser");
             browser.close().await?;
             browser.wait().await?;
             handle.await?;
             browser.kill().await;
-            let err_msg = format!(
-                "Error finding password input box: current url: {:#?} error: {e}",
-                page_url
-            );
-            log::error!("{err_msg}");
             return Err(anyhow::anyhow!("{err_msg}"));
         }
     }
@@ -296,6 +296,10 @@ pub async fn generate_report(
         .await
     {
         let page_url = page.url().await;
+        log::error!(
+            "Error navigating to organization {org_id}: current uri: {:#?} error: {e}",
+            page_url
+        );
         // Take a screenshot before killing the browser to help debug issues
         take_screenshot(&page, org_id, dashboard_id).await?;
         log::info!("killing browser");
@@ -303,10 +307,6 @@ pub async fn generate_report(
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
-        log::error!(
-            "Error navigating to organization {org_id}: current uri: {:#?} error: {e}",
-            page_url
-        );
         return Err(anyhow::anyhow!("{e}"));
     }
     page.wait_for_navigation().await?;
@@ -465,8 +465,13 @@ async fn take_screenshot(
     let timestamp = chrono::Utc::now().timestamp();
     let screenshot_params = CaptureScreenshotParamsBuilder::default();
     let screenshot = page.screenshot(screenshot_params.build()).await?;
+    let download_path = &CONFIG.chrome.chrome_download_path;
+    tokio::fs::create_dir_all(download_path).await.unwrap();
     tokio::fs::write(
-        format!("screenshot_{}_{}_{}.png", org_id, dashboard_name, timestamp),
+        format!(
+            "{}/screenshot_{}_{}_{}.png",
+            download_path, org_id, dashboard_name, timestamp
+        ),
         &screenshot,
     )
     .await?;
