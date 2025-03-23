@@ -14,10 +14,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use actix_web::{dev::ServerHandle, middleware, web, App, HttpServer};
-use o2_report_generator::{
-    config::{self, CONFIG},
-    router::{healthz, send_report},
-};
+use o2_report_generator::{config::{self, CONFIG}, ReportAttachmentDimensions, router::{healthz, send_report}};
 use std::net::SocketAddr;
 
 #[tokio::main]
@@ -28,8 +25,8 @@ async fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
 
     // Locate or fetch chromium
-    _ = config::get_chrome_launch_options().await;
-
+    _ = config::get_chrome_launch_options(ReportAttachmentDimensions::default()).await;
+    
     log::info!("starting o2 chrome server");
 
     if CONFIG.auth.user_email.is_empty() || CONFIG.auth.user_password.is_empty() {
