@@ -13,6 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::ReportAttachmentDimensions;
 use chromiumoxide::{
     browser::BrowserConfig,
     detection::{default_executable, DetectionOptions},
@@ -36,21 +37,25 @@ pub static CONFIG: Lazy<Config> = Lazy::new(init);
 static CHROME_LAUNCHER_OPTIONS: tokio::sync::OnceCell<BrowserConfig> =
     tokio::sync::OnceCell::const_new();
 
-pub async fn get_chrome_launch_options() -> &'static BrowserConfig {
+pub async fn get_chrome_launch_options(
+    report_attachment_dimensions: ReportAttachmentDimensions,
+) -> &'static BrowserConfig {
     CHROME_LAUNCHER_OPTIONS
-        .get_or_init(init_chrome_launch_options)
+        .get_or_init(|| init_chrome_launch_options(report_attachment_dimensions))
         .await
 }
 
-async fn init_chrome_launch_options() -> BrowserConfig {
+async fn init_chrome_launch_options(
+    report_attachment_dimensions: ReportAttachmentDimensions,
+) -> BrowserConfig {
     let mut browser_config = BrowserConfig::builder()
         .window_size(
-            CONFIG.chrome.chrome_window_width,
-            CONFIG.chrome.chrome_window_height,
+            report_attachment_dimensions.width,
+            report_attachment_dimensions.height,
         )
         .viewport(Viewport {
-            width: CONFIG.chrome.chrome_window_width,
-            height: CONFIG.chrome.chrome_window_height,
+            width: report_attachment_dimensions.width,
+            height: report_attachment_dimensions.height,
             device_scale_factor: Some(1.0),
             ..Viewport::default()
         });

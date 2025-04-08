@@ -1,12 +1,12 @@
-use actix_web::{get, http::StatusCode, put, web, HttpRequest, HttpResponse as ActixHttpResponse};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::io::Error;
-
 use crate::{
     config::{CONFIG, SMTP_CLIENT},
     Report, ReportType,
 };
+use actix_web::web::Query;
+use actix_web::{get, http::StatusCode, put, web, HttpRequest, HttpResponse as ActixHttpResponse};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::io::Error;
 
 /// HTTP response
 /// code 200 is success
@@ -68,9 +68,9 @@ pub async fn send_report(
     let report_type = if report.email_details.recipients.is_empty() {
         ReportType::Cache
     } else {
-        ReportType::PDF
+        report.dashboards[0].report_type.clone()
     };
-    let (pdf_data, email_dashboard_url) = match crate::generate_report(
+    let (attachment_data, email_dashboard_url) = match crate::generate_report(
         &report.dashboards[0],
         &org_id,
         &CONFIG.auth.user_email,
@@ -97,7 +97,9 @@ pub async fn send_report(
     }
 
     match crate::send_email(
-        &pdf_data,
+        &attachment_data,
+        report.dashboards[0].report_type.clone(),
+        report.dashboards[0].email_attachment_type.clone(),
         crate::EmailDetails {
             dashb_url: email_dashboard_url,
             ..report.email_details
@@ -110,9 +112,9 @@ pub async fn send_report(
     )
     .await
     {
-        Ok(_) => Ok(ActixHttpResponse::Ok().json(HttpResponse::success(format!(
-            "report sent to emails successfully"
-        )))),
+        Ok(_) => Ok(ActixHttpResponse::Ok().json(HttpResponse::success(
+            "report sent to emails successfully".to_string(),
+        ))),
         Err(e) => {
             log::error!("Error sending emails to recepients: {e}");
             Ok(ActixHttpResponse::InternalServerError()
