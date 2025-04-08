@@ -1,6 +1,6 @@
 [package]
 name = "o2_report_generator"
-version = "0.1.0"
+version = "0.11.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,6 +13,13 @@ chromiumoxide = { git = "https://github.com/mattsse/chromiumoxide", features = [
   "_fetcher-rusttls-tokio",
 ], default-features = false, rev = "6f2392f78ae851e2acf33df8e9764cc299d837db" }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap = { version = "4.5", default-features = false, features = [
+    "std",
+    "help",
+    "usage",
+    "suggestions",
+    "cargo",
+] }
 dotenv_config = "0.1"
 dotenvy = "0.15"
 env_logger = "0.10"

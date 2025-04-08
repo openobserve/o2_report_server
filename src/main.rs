@@ -1,4 +1,4 @@
-// Copyright 2024 Zinc Labs Inc.
+// Copyright 2025 OpenObserve Inc.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -15,6 +15,7 @@
 
 use actix_web::{dev::ServerHandle, middleware, web, App, HttpServer};
 use o2_report_generator::{
+    cli,
     config::{self, CONFIG},
     router::{healthz, send_report},
 };
@@ -26,6 +27,11 @@ async fn main() -> Result<(), anyhow::Error> {
         std::env::set_var("RUST_LOG", "info");
     }
     env_logger::init();
+
+    // cli mode
+    if cli::cli().await? {
+        return Ok(());
+    }
 
     // Locate or fetch chromium
     _ = config::get_chrome_launch_options().await;

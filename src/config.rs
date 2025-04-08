@@ -1,4 +1,4 @@
-// Copyright 2024 Zinc Labs Inc.
+// Copyright 2025 OpenObserve Inc.
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -29,12 +29,126 @@ use lettre::{
     AsyncSmtpTransport, Tokio1Executor,
 };
 use once_cell::sync::Lazy;
-// use sysinfo::{DiskExt, SystemExt};
+
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub static CONFIG: Lazy<Config> = Lazy::new(init);
 
 static CHROME_LAUNCHER_OPTIONS: tokio::sync::OnceCell<BrowserConfig> =
     tokio::sync::OnceCell::const_new();
+
+#[derive(EnvConfig)]
+pub struct Config {
+    pub auth: Auth,
+    pub http: Http,
+    pub grpc: Grpc,
+    pub common: Common,
+    // pub limit: Limit,
+    pub smtp: Smtp,
+    pub chrome: Chrome,
+    pub tokio_console: TokioConsole,
+}
+
+#[derive(EnvConfig)]
+pub struct TokioConsole {
+    #[env_config(name = "ZO_TOKIO_CONSOLE_SERVER_ADDR", default = "0.0.0.0")]
+    pub tokio_console_server_addr: String,
+    #[env_config(name = "ZO_TOKIO_CONSOLE_SERVER_PORT", default = 6699)]
+    pub tokio_console_server_port: u16,
+    #[env_config(name = "ZO_TOKIO_CONSOLE_RETENTION", default = 60)]
+    pub tokio_console_retention: u64,
+}
+
+#[derive(EnvConfig)]
+pub struct Chrome {
+    #[env_config(name = "ZO_CHROME_PATH", default = "")]
+    pub chrome_path: String,
+    #[env_config(name = "ZO_CHROME_CHECK_DEFAULT_PATH", default = true)]
+    pub chrome_check_default: bool,
+    #[env_config(name = "ZO_CHROME_DOWNLOAD_PATH", default = "./data/download")]
+    pub chrome_download_path: String,
+    #[env_config(name = "ZO_CHROME_NO_SANDBOX", default = false)]
+    pub chrome_no_sandbox: bool,
+    #[env_config(name = "ZO_CHROME_WITH_HEAD", default = false)]
+    pub chrome_with_head: bool,
+    #[env_config(name = "ZO_CHROME_SLEEP_SECS", default = 20)]
+    pub chrome_sleep_secs: u16,
+    #[env_config(name = "ZO_CHROME_WINDOW_WIDTH", default = 1370)]
+    pub chrome_window_width: u32,
+    #[env_config(name = "ZO_CHROME_WINDOW_HEIGHT", default = 730)]
+    pub chrome_window_height: u32,
+    #[env_config(name = "ZO_CHROME_ADDITIONAL_ARGS", default = "")]
+    pub chrome_additional_args: String,
+    #[env_config(name = "ZO_CHROME_DISABLE_DEFAULT_ARGS", default = false)]
+    pub chrome_disable_default_args: bool,
+}
+
+#[derive(EnvConfig)]
+pub struct Smtp {
+    #[env_config(name = "ZO_SMTP_HOST", default = "localhost")]
+    pub smtp_host: String,
+    #[env_config(name = "ZO_SMTP_PORT", default = 25)]
+    pub smtp_port: u16,
+    #[env_config(name = "ZO_SMTP_USER_NAME", default = "")]
+    pub smtp_username: String,
+    #[env_config(name = "ZO_SMTP_PASSWORD", default = "")]
+    pub smtp_password: String,
+    #[env_config(name = "ZO_SMTP_REPLY_TO", default = "")]
+    pub smtp_reply_to: String,
+    #[env_config(name = "ZO_SMTP_FROM_EMAIL", default = "")]
+    pub smtp_from_email: String,
+    #[env_config(name = "ZO_SMTP_ENCRYPTION", default = "")]
+    pub smtp_encryption: String,
+}
+
+#[derive(EnvConfig)]
+pub struct Auth {
+    #[env_config(name = "ZO_REPORT_USER_EMAIL", default = "")]
+    pub user_email: String,
+    #[env_config(name = "ZO_REPORT_USER_PASSWORD", default = "")]
+    pub user_password: String,
+}
+
+#[derive(EnvConfig)]
+pub struct Http {
+    #[env_config(name = "ZO_HTTP_PORT", default = 5090)]
+    pub port: u16,
+    #[env_config(name = "ZO_HTTP_ADDR", default = "127.0.0.1")]
+    pub addr: String,
+    #[env_config(name = "ZO_HTTP_IPV6_ENABLED", default = false)]
+    pub ipv6_enabled: bool,
+}
+
+#[derive(EnvConfig)]
+pub struct Grpc {
+    #[env_config(name = "ZO_GRPC_PORT", default = 5081)]
+    pub port: u16,
+    #[env_config(name = "ZO_GRPC_ADDR", default = "")]
+    pub addr: String,
+    #[env_config(name = "ZO_INTERNAL_GRPC_TOKEN", default = "")]
+    pub internal_grpc_token: String,
+    #[env_config(
+        name = "ZO_GRPC_MAX_MESSAGE_SIZE",
+        default = 16,
+        help = "Max grpc message size in MB, default is 16 MB"
+    )]
+    pub max_message_size: usize,
+}
+
+#[derive(EnvConfig)]
+pub struct Common {
+    #[env_config(name = "ZO_APP_NAME", default = "openobserve_report_generator")]
+    pub app_name: String,
+    #[env_config(name = "ZO_O2_APP_URL", default = "http://localhost:5080/web")]
+    pub o2_web_uri: String,
+    #[env_config(name = "ZO_LOCAL_MODE", default = true)]
+    pub local_mode: bool,
+}
+
+pub fn init() -> Config {
+    dotenv().ok();
+    Config::init().unwrap()
+}
 
 pub async fn get_chrome_launch_options() -> &'static BrowserConfig {
     CHROME_LAUNCHER_OPTIONS
@@ -145,125 +259,3 @@ pub static SMTP_CLIENT: Lazy<AsyncSmtpTransport<Tokio1Executor>> = Lazy::new(|| 
     }
     transport_builder.build()
 });
-
-#[derive(EnvConfig)]
-pub struct Config {
-    pub auth: Auth,
-    pub http: Http,
-    pub grpc: Grpc,
-    pub common: Common,
-    // pub limit: Limit,
-    pub smtp: Smtp,
-    pub chrome: Chrome,
-    pub tokio_console: TokioConsole,
-}
-
-#[derive(EnvConfig)]
-pub struct TokioConsole {
-    #[env_config(name = "ZO_TOKIO_CONSOLE_SERVER_ADDR", default = "0.0.0.0")]
-    pub tokio_console_server_addr: String,
-    #[env_config(name = "ZO_TOKIO_CONSOLE_SERVER_PORT", default = 6699)]
-    pub tokio_console_server_port: u16,
-    #[env_config(name = "ZO_TOKIO_CONSOLE_RETENTION", default = 60)]
-    pub tokio_console_retention: u64,
-}
-
-#[derive(EnvConfig)]
-pub struct Chrome {
-    #[env_config(name = "ZO_CHROME_PATH", default = "")]
-    pub chrome_path: String,
-    #[env_config(name = "ZO_CHROME_CHECK_DEFAULT_PATH", default = true)]
-    pub chrome_check_default: bool,
-    #[env_config(name = "ZO_CHROME_DOWNLOAD_PATH", default = "./data/download")]
-    pub chrome_download_path: String,
-    #[env_config(name = "ZO_CHROME_NO_SANDBOX", default = false)]
-    pub chrome_no_sandbox: bool,
-    #[env_config(name = "ZO_CHROME_WITH_HEAD", default = false)]
-    pub chrome_with_head: bool,
-    #[env_config(name = "ZO_CHROME_SLEEP_SECS", default = 20)]
-    pub chrome_sleep_secs: u16,
-    #[env_config(name = "ZO_CHROME_WINDOW_WIDTH", default = 1370)]
-    pub chrome_window_width: u32,
-    #[env_config(name = "ZO_CHROME_WINDOW_HEIGHT", default = 730)]
-    pub chrome_window_height: u32,
-    #[env_config(name = "ZO_CHROME_ADDITIONAL_ARGS", default = "")]
-    pub chrome_additional_args: String,
-    #[env_config(name = "ZO_CHROME_DISABLE_DEFAULT_ARGS", default = false)]
-    pub chrome_disable_default_args: bool,
-}
-
-#[derive(EnvConfig)]
-pub struct Smtp {
-    #[env_config(name = "ZO_SMTP_HOST", default = "localhost")]
-    pub smtp_host: String,
-    #[env_config(name = "ZO_SMTP_PORT", default = 25)]
-    pub smtp_port: u16,
-    #[env_config(name = "ZO_SMTP_USER_NAME", default = "")]
-    pub smtp_username: String,
-    #[env_config(name = "ZO_SMTP_PASSWORD", default = "")]
-    pub smtp_password: String,
-    #[env_config(name = "ZO_SMTP_REPLY_TO", default = "")]
-    pub smtp_reply_to: String,
-    #[env_config(name = "ZO_SMTP_FROM_EMAIL", default = "")]
-    pub smtp_from_email: String,
-    #[env_config(name = "ZO_SMTP_ENCRYPTION", default = "")]
-    pub smtp_encryption: String,
-}
-
-#[derive(EnvConfig)]
-pub struct Auth {
-    #[env_config(name = "ZO_REPORT_USER_EMAIL", default = "")]
-    pub user_email: String,
-    #[env_config(name = "ZO_REPORT_USER_PASSWORD", default = "")]
-    pub user_password: String,
-}
-
-#[derive(EnvConfig)]
-pub struct Http {
-    #[env_config(name = "ZO_HTTP_PORT", default = 5090)]
-    pub port: u16,
-    #[env_config(name = "ZO_HTTP_ADDR", default = "127.0.0.1")]
-    pub addr: String,
-    #[env_config(name = "ZO_HTTP_IPV6_ENABLED", default = false)]
-    pub ipv6_enabled: bool,
-}
-
-#[derive(EnvConfig)]
-pub struct Grpc {
-    #[env_config(name = "ZO_GRPC_PORT", default = 5081)]
-    pub port: u16,
-    #[env_config(name = "ZO_GRPC_ADDR", default = "")]
-    pub addr: String,
-    #[env_config(name = "ZO_INTERNAL_GRPC_TOKEN", default = "")]
-    pub internal_grpc_token: String,
-    #[env_config(
-        name = "ZO_GRPC_MAX_MESSAGE_SIZE",
-        default = 16,
-        help = "Max grpc message size in MB, default is 16 MB"
-    )]
-    pub max_message_size: usize,
-}
-
-#[derive(EnvConfig)]
-pub struct Common {
-    #[env_config(name = "ZO_APP_NAME", default = "openobserve_report_generator")]
-    pub app_name: String,
-    #[env_config(name = "ZO_O2_APP_URL", default = "http://localhost:5080/web")]
-    pub o2_web_uri: String,
-    #[env_config(name = "ZO_LOCAL_MODE", default = true)]
-    pub local_mode: bool,
-}
-
-// #[derive(EnvConfig)]
-// pub struct Limit {
-//     // no need set by environment
-//     pub cpu_num: usize,
-//     pub mem_total: usize,
-//     pub disk_total: usize,
-//     pub disk_free: usize,
-// }
-
-pub fn init() -> Config {
-    dotenv().ok();
-    Config::init().unwrap()
-}
