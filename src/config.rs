@@ -29,6 +29,7 @@ use lettre::{
     AsyncSmtpTransport, Tokio1Executor,
 };
 use once_cell::sync::Lazy;
+use crate::ReportAttachmentDimensions;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

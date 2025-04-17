@@ -84,9 +84,9 @@ pub async fn send_report(
     let report_type = if report.email_details.recipients.is_empty() {
         ReportType::Cache
     } else {
-        ReportType::PDF
+        report.dashboards[0].report_type.clone()
     };
-    let (pdf_data, email_dashboard_url) = match crate::generate_report(
+    let (attachment_data, email_dashboard_url) = match crate::generate_report(
         &report.dashboards[0],
         &org_id,
         &CONFIG.auth.user_email,
