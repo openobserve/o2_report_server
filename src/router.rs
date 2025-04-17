@@ -92,7 +92,7 @@ pub async fn send_report(
         return Ok(ActixHttpResponse::build(StatusCode::BAD_REQUEST).json(
             HttpResponse::new(
                 "At least 1 dashboard must be provided when sending a report".to_string(),
-                400
+                StatusCode::BAD_REQUEST.into()
             )
         ))
     }
@@ -113,7 +113,7 @@ pub async fn send_report(
             HttpResponse::new(
                 "Most email servers do not support inline PDF attachments, \
                 for inline attachments please use a PNG.".to_string(),
-                409
+                StatusCode::CONFLICT.into()
             )
         ));
     }
