@@ -31,10 +31,44 @@ use lettre::{
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ReportType {
     PDF,
     Cache,
+    PNG,
+}
+
+fn default_report_type() -> ReportType {
+    ReportType::PDF
+}
+
+#[derive(Serialize, Debug, Deserialize, Clone, PartialEq)]
+pub enum EmailAttachmentType {
+    Standard, // Sends the email as a traditional attachment the user can download and (pre)view
+    Inline,   // Sends the attachment inline in the email body
+}
+
+fn default_attachment_type() -> EmailAttachmentType {
+    EmailAttachmentType::Standard
+}
+
+/// Allow the user to override attachment size per report.
+/// Some reports are better in wide aspect ratios, and some reports like 2 column tables are
+/// better in tall aspect ratios.
+/// If no dimensions are provided, the default will be used from chrome config env vars.
+#[derive(Serialize, Debug, Deserialize, Clone)]
+pub struct ReportAttachmentDimensions {
+    pub height: u32,
+    pub width: u32,
+}
+
+impl Default for ReportAttachmentDimensions {
+    fn default() -> Self {
+        Self {
+            height: CONFIG.chrome.chrome_window_width,
+            width: CONFIG.chrome.chrome_window_height,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +104,15 @@ pub struct ReportDashboard {
     /// The timerange of dashboard data.
     #[serde(default)]
     pub timerange: ReportTimerange,
+    // defaults to PDF
+    #[serde(default = "default_report_type")]
+    pub report_type: ReportType,
+    // defaults to standard attachment
+    #[serde(default = "default_attachment_type")]
+    pub email_attachment_type: EmailAttachmentType,
+    // defaults to chrome settings values for height and width
+    #[serde(default)]
+    pub attachment_dimensions: ReportAttachmentDimensions,
 }
 
 #[derive(Serialize, Debug, Default, Deserialize, Clone)]
@@ -133,8 +176,12 @@ pub async fn generate_report(
     let tab_id = &dashboard.tabs[0];
 
     log::info!("launching browser for dashboard {dashboard_id}");
-    let (mut browser, mut handler) =
-        Browser::launch(get_chrome_launch_options().await.clone()).await?;
+    let (mut browser, mut handler) = Browser::launch(
+        get_chrome_launch_options(dashboard.attachment_dimensions.clone())
+            .await
+            .clone(),
+    )
+    .await?;
     log::info!("browser launched");
 
     let handle = tokio::task::spawn(async move {
@@ -176,7 +223,7 @@ pub async fn generate_report(
             );
             log::error!("{err_msg}");
             // Take a screenshot before killing the browser to help debug login issues
-            take_screenshot(&page, org_id, dashboard_id).await?;
+            take_screenshot(&page, org_id, dashboard_id, true).await?;
             log::info!("killing browser");
             browser.close().await?;
             browser.wait().await?;
@@ -203,7 +250,7 @@ pub async fn generate_report(
                 page_url
             );
             log::error!("{err_msg}");
-            take_screenshot(&page, org_id, dashboard_id).await?;
+            take_screenshot(&page, org_id, dashboard_id, true).await?;
             log::info!("killing browser");
             browser.close().await?;
             browser.wait().await?;
@@ -302,7 +349,7 @@ pub async fn generate_report(
             page_url
         );
         // Take a screenshot before killing the browser to help debug issues
-        take_screenshot(&page, org_id, dashboard_id).await?;
+        take_screenshot(&page, org_id, dashboard_id, true).await?;
         log::info!("killing browser");
         browser.close().await?;
         browser.wait().await?;
@@ -318,7 +365,7 @@ pub async fn generate_report(
 
     if let Err(e) = page.goto(&dashb_url).await {
         let page_url = page.url().await;
-        take_screenshot(&page, org_id, dashboard_id).await?;
+        take_screenshot(&page, org_id, dashboard_id, true).await?;
         log::info!("killing browser");
         browser.close().await?;
         browser.wait().await?;
@@ -354,7 +401,7 @@ pub async fn generate_report(
 
     if let Err(e) = page.find_element("main").await {
         let page_url = page.url().await;
-        take_screenshot(&page, org_id, dashboard_id).await?;
+        take_screenshot(&page, org_id, dashboard_id, true).await?;
         // Take a screenshot before killing the browser to help debug login issues
         log::info!("killing browser");
         browser.close().await?;
@@ -369,7 +416,7 @@ pub async fn generate_report(
     if let Err(e) = page.find_element("div.displayDiv").await {
         let page_url = page.url().await;
         // Take a screenshot before killing the browser to help debug login issues
-        take_screenshot(&page, org_id, dashboard_id).await?;
+        take_screenshot(&page, org_id, dashboard_id, true).await?;
         log::info!("killing browser");
         browser.close().await?;
         browser.wait().await?;
@@ -383,7 +430,7 @@ pub async fn generate_report(
 
     // Last two elements loaded means atleast the metric components have loaded.
     // Convert the page into pdf
-    let pdf_data = match report_type {
+    let attachment_data = match report_type {
         ReportType::PDF => {
             page.pdf(PrintToPdfParams {
                 landscape: Some(true),
@@ -391,6 +438,7 @@ pub async fn generate_report(
             })
             .await?
         }
+        ReportType::PNG => take_screenshot(&page, org_id, dashboard_id, false).await?,
         // No need to capture pdf when report type is cache
         ReportType::Cache => vec![],
     };
@@ -400,12 +448,15 @@ pub async fn generate_report(
     handle.await?;
     browser.kill().await;
     log::debug!("done with headless browser");
-    Ok((pdf_data, email_dashb_url))
+    Ok((attachment_data, email_dashb_url))
 }
 
-/// Sends emails to the [`Report`] recepients. Currently only one pdf data is supported.
+/// Sends emails to the [`Report`] recepients
+/// Today PDFs and PNGs are supported with the option for attaching or sending inline
 async fn send_email(
-    pdf_data: &[u8],
+    attachment_data: &[u8],
+    report_type: ReportType,
+    email_attachment_type: EmailAttachmentType,
     email_details: EmailDetails,
     config: SmtpConfig,
 ) -> Result<(), anyhow::Error> {
@@ -426,25 +477,70 @@ async fn send_email(
         email = email.reply_to(config.reply_to.parse()?);
     }
 
-    let email = email
-        .multipart(
-            MultiPart::mixed()
-                .singlepart(SinglePart::html(format!(
-                    "{}\n\n<p><a href='{}' target='_blank'>Link to dashboard</a></p>",
-                    email_details.message, email_details.dashb_url
-                )))
-                .singlepart(
-                    // Only supports PDF for now, attach the PDF
-                    lettre::message::Attachment::new(
-                        format!("{}.pdf", sanitize_filename(&email_details.title)), // Attachment filename
-                    )
-                    .body(pdf_data.to_owned(), ContentType::parse("application/pdf")?),
-                ),
-        )
-        .unwrap();
+    let attachment_type = match report_type {
+        ReportType::PDF => ContentType::parse("application/pdf")?,
+        ReportType::PNG => ContentType::parse("image/png")?,
+        ReportType::Cache => return Err(anyhow::anyhow!("Cached reports are not sent via email")),
+    };
+
+    let attachment_file_extension = match report_type {
+        ReportType::PDF => "pdf",
+        ReportType::PNG => "png",
+        ReportType::Cache => return Err(anyhow::anyhow!("Cached reports are not sent via email")),
+    };
+
+    // spaces in names is not handled well by some email servers, so replace with _
+    let attachment_name = format!(
+        "{}.{}",
+        sanitize_filename(&email_details.title),
+        attachment_file_extension
+    )
+    .trim()
+    .replace(" ", "_");
+
+    let email_message = match email_attachment_type {
+        EmailAttachmentType::Standard => {
+            let email_html = SinglePart::html(format!(
+                "{}\n\n<p><a href='{}' target='_blank'>Link to dashboard</a></p>",
+                email_details.message, email_details.dashb_url
+            ));
+            let attachment = lettre::message::Attachment::new(attachment_name)
+                .body(attachment_data.to_owned(), attachment_type);
+            email
+                .multipart(
+                    MultiPart::mixed()
+                        .singlepart(email_html)
+                        .singlepart(attachment),
+                )
+                .unwrap()
+        }
+        EmailAttachmentType::Inline => {
+            // cid should work in most email servers (should work with gmail / outlook)
+            let email_html = SinglePart::html(format!(
+                "<p>{}</p>
+                <br>
+                <br>
+                <img src='cid:{}' alt='{}'>
+                <br>
+                <br>
+                <p><a href='{}' target='_blank'>Link to dashboard</a></p>
+                ",
+                email_details.message, attachment_name, attachment_name, email_details.dashb_url
+            ));
+            let attachment = lettre::message::Attachment::new_inline(attachment_name)
+                .body(attachment_data.to_owned(), attachment_type);
+            email
+                .multipart(
+                    MultiPart::mixed()
+                        .singlepart(email_html)
+                        .singlepart(attachment),
+                )
+                .unwrap()
+        }
+    };
 
     // Send the email
-    match config.client.send(email).await {
+    match config.client.send(email_message).await {
         Ok(_) => {
             log::info!(
                 "email sent successfully for the report {}",
@@ -460,26 +556,29 @@ async fn take_screenshot(
     page: &Page,
     org_id: &str,
     dashboard_name: &str,
-) -> Result<(), anyhow::Error> {
+    save_to_disk: bool,
+) -> Result<Vec<u8>, anyhow::Error> {
     let timestamp = chrono::Utc::now().timestamp();
     let screenshot_params = CaptureScreenshotParamsBuilder::default();
     let screenshot = page.screenshot(screenshot_params.build()).await?;
-    let download_path = &CONFIG.chrome.chrome_download_path;
-    tokio::fs::create_dir_all(download_path).await.unwrap();
-    tokio::fs::write(
-        format!(
-            "{}/screenshot_{}_{}_{}.png",
-            download_path, org_id, dashboard_name, timestamp
-        ),
-        &screenshot,
-    )
-    .await?;
-    Ok(())
+    if save_to_disk {
+        let download_path = &CONFIG.chrome.chrome_download_path;
+        tokio::fs::create_dir_all(download_path).await.unwrap();
+        tokio::fs::write(
+            format!(
+                "{}/screenshot_{}_{}_{}.png",
+                download_path, org_id, dashboard_name, timestamp
+            ),
+            &screenshot,
+        )
+        .await?;
+    }
+    Ok(screenshot)
 }
 
 pub async fn wait_for_panel_data_load(page: &Page) -> Result<Duration, anyhow::Error> {
     let start = std::time::Instant::now();
-    let timeout = std::time::Duration::from_secs(CONFIG.chrome.chrome_sleep_secs.into());
+    let timeout = Duration::from_secs(CONFIG.chrome.chrome_sleep_secs.into());
     loop {
         if page
             .find_element("span#dashboardVariablesAndPanelsDataLoaded")

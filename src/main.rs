@@ -18,6 +18,7 @@ use o2_report_generator::{
     cli,
     config::{self, CONFIG},
     router::{healthz, send_report},
+    ReportAttachmentDimensions,
 };
 use std::net::SocketAddr;
 
@@ -34,7 +35,7 @@ async fn main() -> Result<(), anyhow::Error> {
     }
 
     // Locate or fetch chromium
-    _ = config::get_chrome_launch_options().await;
+    _ = config::get_chrome_launch_options(ReportAttachmentDimensions::default()).await;
 
     log::info!("starting o2 chrome server");
 

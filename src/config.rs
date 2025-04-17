@@ -29,6 +29,7 @@ use lettre::{
     AsyncSmtpTransport, Tokio1Executor,
 };
 use once_cell::sync::Lazy;
+use crate::ReportAttachmentDimensions;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -150,21 +151,25 @@ pub fn init() -> Config {
     Config::init().unwrap()
 }
 
-pub async fn get_chrome_launch_options() -> &'static BrowserConfig {
+pub async fn get_chrome_launch_options(
+    report_attachment_dimensions: ReportAttachmentDimensions,
+) -> &'static BrowserConfig {
     CHROME_LAUNCHER_OPTIONS
-        .get_or_init(init_chrome_launch_options)
+        .get_or_init(|| init_chrome_launch_options(report_attachment_dimensions))
         .await
 }
 
-async fn init_chrome_launch_options() -> BrowserConfig {
+async fn init_chrome_launch_options(
+    report_attachment_dimensions: ReportAttachmentDimensions,
+) -> BrowserConfig {
     let mut browser_config = BrowserConfig::builder()
         .window_size(
-            CONFIG.chrome.chrome_window_width,
-            CONFIG.chrome.chrome_window_height,
+            report_attachment_dimensions.width,
+            report_attachment_dimensions.height,
         )
         .viewport(Viewport {
-            width: CONFIG.chrome.chrome_window_width,
-            height: CONFIG.chrome.chrome_window_height,
+            width: report_attachment_dimensions.width,
+            height: report_attachment_dimensions.height,
             device_scale_factor: Some(1.0),
             ..Viewport::default()
         });
@@ -259,3 +264,4 @@ pub static SMTP_CLIENT: Lazy<AsyncSmtpTransport<Tokio1Executor>> = Lazy::new(|| 
     }
     transport_builder.build()
 });
+

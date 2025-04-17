@@ -17,11 +17,8 @@ use actix_web::{get, http::StatusCode, put, web, HttpRequest, HttpResponse as Ac
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Error;
-
-use crate::{
-    config::{CONFIG, SMTP_CLIENT},
-    Report, ReportType,
-};
+use crate::{config::{CONFIG, SMTP_CLIENT}, Report, ReportType};
+use crate::EmailAttachmentType::Inline;
 
 /// HTTP response
 /// code 200 is success
@@ -59,6 +56,15 @@ impl HttpResponse {
             trace_id: None,
         }
     }
+    
+    pub fn new(msg: String, status_code: u16) -> Self {
+        Self {
+            code: status_code,
+            message: msg,
+            error_detail: None,
+            trace_id: None 
+        }
+    }
 }
 
 #[get("/healthz")]
@@ -79,14 +85,41 @@ pub async fn send_report(
         Some(v) => v,
         None => "Europe/London",
     };
-
+    
+    // ensure a dashboard was provided and if not raise a helpful error with a 400
+    if report.dashboards.len() == 0 {
+        log::error!("At least 1 dashboard must be provided when sending a report");
+        return Ok(ActixHttpResponse::build(StatusCode::BAD_REQUEST).json(
+            HttpResponse::new(
+                "At least 1 dashboard must be provided when sending a report".to_string(),
+                StatusCode::BAD_REQUEST.into()
+            )
+        ))
+    }
+    
+    // Since only 1 dashboard is supported currently per report, grab the first one
+    let dashboard_for_report = report.dashboards[0].clone();
     let report_type = if report.email_details.recipients.is_empty() {
         ReportType::Cache
     } else {
-        ReportType::PDF
+        dashboard_for_report.report_type.clone()
     };
-    let (pdf_data, email_dashboard_url) = match crate::generate_report(
-        &report.dashboards[0],
+    
+    // If inline attachment was desired but not a PDF, raise an exception since most mail servers 
+    // will only let you embed simple images.
+    if report_type == ReportType::PDF && dashboard_for_report.email_attachment_type == Inline {
+        log::warn!("Inline PDF attachments are not allowed. Report: {org_id}/{report_name}");
+        return Ok(ActixHttpResponse::build(StatusCode::CONFLICT).json(
+            HttpResponse::new(
+                "Most email servers do not support inline PDF attachments, \
+                for inline attachments please use a PNG.".to_string(),
+                StatusCode::CONFLICT.into()
+            )
+        ));
+    }
+    
+    let (attachment_data, email_dashboard_url) = match crate::generate_report(
+        &dashboard_for_report,
         &org_id,
         &CONFIG.auth.user_email,
         &CONFIG.auth.user_password,
@@ -112,7 +145,9 @@ pub async fn send_report(
     }
 
     match crate::send_email(
-        &pdf_data,
+        &attachment_data,
+        report.dashboards[0].report_type.clone(),
+        report.dashboards[0].email_attachment_type.clone(),
         crate::EmailDetails {
             dashb_url: email_dashboard_url,
             ..report.email_details
