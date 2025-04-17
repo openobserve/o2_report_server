@@ -1,12 +1,28 @@
-use crate::{
-    config::{CONFIG, SMTP_CLIENT},
-    Report, ReportType,
-};
+// Copyright 2025 OpenObserve Inc.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 use actix_web::web::Query;
 use actix_web::{get, http::StatusCode, put, web, HttpRequest, HttpResponse as ActixHttpResponse};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Error;
+
+use crate::{
+    config::{CONFIG, SMTP_CLIENT},
+    Report, ReportType,
+};
 
 /// HTTP response
 /// code 200 is success
@@ -68,9 +84,9 @@ pub async fn send_report(
     let report_type = if report.email_details.recipients.is_empty() {
         ReportType::Cache
     } else {
-        report.dashboards[0].report_type.clone()
+        ReportType::PDF
     };
-    let (attachment_data, email_dashboard_url) = match crate::generate_report(
+    let (pdf_data, email_dashboard_url) = match crate::generate_report(
         &report.dashboards[0],
         &org_id,
         &CONFIG.auth.user_email,
