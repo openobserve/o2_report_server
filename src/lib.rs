@@ -17,7 +17,6 @@ pub mod cli;
 pub mod config;
 pub mod router;
 
-use actix_web::cookie::time::format_description::well_known::iso8601::Config;
 use chromiumoxide::{
     browser::Browser,
     cdp::browser_protocol::page::{CaptureScreenshotParamsBuilder, PrintToPdfParams},
@@ -29,7 +28,6 @@ use lettre::{
     message::{header::ContentType, MultiPart, SinglePart},
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
-use log::Log;
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
@@ -44,7 +42,7 @@ fn default_report_type() -> ReportType {
     ReportType::PDF
 }
 
-#[derive(Serialize, Debug, Deserialize, Clone)]
+#[derive(Serialize, Debug, Deserialize, Clone, PartialEq)]
 pub enum EmailAttachmentType {
     Standard, // Sends the email as a traditional attachment the user can download and (pre)view
     Inline,   // Sends the attachment inline in the email body
