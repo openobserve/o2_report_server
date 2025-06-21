@@ -164,6 +164,9 @@ pub async fn generate_report(
     let dashboard_id = &dashboard.dashboard;
     let folder_id = &dashboard.folder;
 
+    let user_tmp_dir = tempfile::tempdir()
+        .map_err(|e| anyhow::anyhow!("Error creating temporary directory: {e}"))?;
+
     let mut dashb_vars = "".to_string();
     for variable in dashboard.variables.iter() {
         dashb_vars = format!("{}&var-{}={}", dashb_vars, variable.key, variable.value);
@@ -176,12 +179,13 @@ pub async fn generate_report(
     let tab_id = &dashboard.tabs[0];
 
     log::info!("launching browser for dashboard {dashboard_id}");
-    let (mut browser, mut handler) = Browser::launch(
-        get_chrome_launch_options(dashboard.attachment_dimensions.clone())
-            .await
-            .clone(),
-    )
-    .await?;
+    let browser_config = get_chrome_launch_options(dashboard.attachment_dimensions.clone())
+        .await
+        .clone()
+        .user_data_dir(user_tmp_dir.path())
+        .build()
+        .map_err(|e| anyhow::anyhow!("Error building browser config: {e}"))?;
+    let (mut browser, mut handler) = Browser::launch(browser_config).await?;
     log::info!("browser launched");
 
     let handle = tokio::task::spawn(async move {
@@ -355,6 +359,9 @@ pub async fn generate_report(
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
+        if let Err(e) = user_tmp_dir.close() {
+            log::error!("Error closing temporary directory: {e}");
+        }
         return Err(anyhow::anyhow!("{e}"));
     }
     page.wait_for_navigation().await?;
@@ -375,6 +382,9 @@ pub async fn generate_report(
             "Error navigating to dashboard url {dashb_url}: current uri: {:#?} error: {e}",
             page_url
         );
+        if let Err(e) = user_tmp_dir.close() {
+            log::error!("Error closing temporary directory: {e}");
+        }
         return Err(anyhow::anyhow!("{e}"));
     }
 
@@ -408,6 +418,9 @@ pub async fn generate_report(
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
+        if let Err(e) = user_tmp_dir.close() {
+            log::error!("Error closing temporary directory: {e}");
+        }
         return Err(anyhow::anyhow!(
             "[REPORT] main html element not rendered yet for dashboard {dashboard_id}; most likely login failed: current url: {:#?} error: {e}",
             page_url
@@ -422,6 +435,9 @@ pub async fn generate_report(
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
+        if let Err(e) = user_tmp_dir.close() {
+            log::error!("Error closing temporary directory: {e}");
+        }
         return Err(anyhow::anyhow!(
             "[REPORT] div.displayDiv element not rendered yet for dashboard {dashboard_id}: current url: {:#?} error: {e}",
             page_url
@@ -448,6 +464,9 @@ pub async fn generate_report(
     handle.await?;
     browser.kill().await;
     log::debug!("done with headless browser");
+    if let Err(e) = user_tmp_dir.close() {
+        log::error!("Error closing temporary directory: {e}");
+    }
     Ok((attachment_data, email_dashb_url))
 }
 
