@@ -13,8 +13,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::ReportAttachmentDimensions;
 use chromiumoxide::{
-    browser::BrowserConfig,
+    browser::{BrowserConfig, BrowserConfigBuilder},
     detection::{default_executable, DetectionOptions},
     fetcher::{BrowserFetcher, BrowserFetcherOptions},
     handler::viewport::Viewport,
@@ -29,13 +30,12 @@ use lettre::{
     AsyncSmtpTransport, Tokio1Executor,
 };
 use once_cell::sync::Lazy;
-use crate::ReportAttachmentDimensions;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub static CONFIG: Lazy<Config> = Lazy::new(init);
 
-static CHROME_LAUNCHER_OPTIONS: tokio::sync::OnceCell<BrowserConfig> =
+static CHROME_LAUNCHER_OPTIONS: tokio::sync::OnceCell<BrowserConfigBuilder> =
     tokio::sync::OnceCell::const_new();
 
 #[derive(EnvConfig)]
@@ -153,7 +153,7 @@ pub fn init() -> Config {
 
 pub async fn get_chrome_launch_options(
     report_attachment_dimensions: ReportAttachmentDimensions,
-) -> &'static BrowserConfig {
+) -> &'static BrowserConfigBuilder {
     CHROME_LAUNCHER_OPTIONS
         .get_or_init(|| init_chrome_launch_options(report_attachment_dimensions))
         .await
@@ -161,7 +161,7 @@ pub async fn get_chrome_launch_options(
 
 async fn init_chrome_launch_options(
     report_attachment_dimensions: ReportAttachmentDimensions,
-) -> BrowserConfig {
+) -> BrowserConfigBuilder {
     let mut browser_config = BrowserConfig::builder()
         .window_size(
             report_attachment_dimensions.width,
@@ -238,7 +238,7 @@ async fn init_chrome_launch_options(
             browser_config = browser_config.chrome_executable(info.executable_path);
         }
     }
-    browser_config.build().unwrap()
+    browser_config
 }
 
 pub static SMTP_CLIENT: Lazy<AsyncSmtpTransport<Tokio1Executor>> = Lazy::new(|| {
@@ -264,4 +264,3 @@ pub static SMTP_CLIENT: Lazy<AsyncSmtpTransport<Tokio1Executor>> = Lazy::new(|| 
     }
     transport_builder.build()
 });
-
