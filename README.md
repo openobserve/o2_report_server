@@ -68,7 +68,7 @@ Following are the ENVs related to chrome and SMTP. * means required -
 <tr>
 <td><code>ZO_CHROME_WINDOW_WIDTH</code></td>
 <td>Browser window width</td>
-<td>1370</td>
+<td>730</td>
 </tr>
 <tr>
 <td><code>ZO_CHROME_WINDOW_HEIGHT</code></td>
