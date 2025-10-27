@@ -68,12 +68,12 @@ Following are the ENVs related to chrome and SMTP. * means required -
 <tr>
 <td><code>ZO_CHROME_WINDOW_WIDTH</code></td>
 <td>Browser window width</td>
-<td>1370</td>
+<td>730</td>
 </tr>
 <tr>
 <td><code>ZO_CHROME_WINDOW_HEIGHT</code></td>
 <td>Browser window height</td>
-<td>730</td>
+<td>1370</td>
 </tr>
 
 <tr><td colspan="3"><strong>SMTP Settings</strong></td></tr>
@@ -150,8 +150,8 @@ ZO_SMTP_ENCRYPTION = "ssltls" # Or "starttls"
 # It will automatically download system specific chromium in the `./download` folder.
 # ZO_CHROME_CHECK_DEFAULT_PATH = false
 
-ZO_CHROME_WINDOW_WIDTH = 1440
-ZO_CHROME_WINDOW_HEIGHT = 730
+ZO_CHROME_WINDOW_WIDTH = 730
+ZO_CHROME_WINDOW_HEIGHT = 1370
 ```
 
 On the OpenObserve part, you need to include the below ENVs -

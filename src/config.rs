@@ -74,9 +74,9 @@ pub struct Chrome {
     pub chrome_with_head: bool,
     #[env_config(name = "ZO_CHROME_SLEEP_SECS", default = 20)]
     pub chrome_sleep_secs: u16,
-    #[env_config(name = "ZO_CHROME_WINDOW_WIDTH", default = 1370)]
+    #[env_config(name = "ZO_CHROME_WINDOW_WIDTH", default = 730)]
     pub chrome_window_width: u32,
-    #[env_config(name = "ZO_CHROME_WINDOW_HEIGHT", default = 730)]
+    #[env_config(name = "ZO_CHROME_WINDOW_HEIGHT", default = 1370)]
     pub chrome_window_height: u32,
     #[env_config(name = "ZO_CHROME_ADDITIONAL_ARGS", default = "")]
     pub chrome_additional_args: String,
