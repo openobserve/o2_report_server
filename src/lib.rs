@@ -65,8 +65,8 @@ pub struct ReportAttachmentDimensions {
 impl Default for ReportAttachmentDimensions {
     fn default() -> Self {
         Self {
-            height: CONFIG.chrome.chrome_window_width,
-            width: CONFIG.chrome.chrome_window_height,
+            height: CONFIG.chrome.chrome_window_height,
+            width: CONFIG.chrome.chrome_window_width,
         }
     }
 }
