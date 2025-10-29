@@ -463,7 +463,19 @@ pub async fn generate_report(
     let attachment_data = match report_type {
         ReportType::PDF => {
             page.pdf(PrintToPdfParams {
-                landscape: Some(true),
+                landscape: Some(CONFIG.chrome.pdf_landscape),
+                display_header_footer: Some(CONFIG.chrome.pdf_display_header_footer),
+                print_background: Some(CONFIG.chrome.pdf_print_background),
+                scale: Some(CONFIG.chrome.pdf_scale),
+                paper_width: Some(CONFIG.chrome.pdf_paper_width),
+                paper_height: Some(CONFIG.chrome.pdf_paper_height),
+                margin_top: Some(CONFIG.chrome.pdf_margin_top),
+                margin_bottom: Some(CONFIG.chrome.pdf_margin_bottom),
+                margin_left: Some(CONFIG.chrome.pdf_margin_left),
+                margin_right: Some(CONFIG.chrome.pdf_margin_right),
+                prefer_css_page_size: Some(CONFIG.chrome.pdf_prefer_css_page_size),
+                generate_tagged_pdf: Some(CONFIG.chrome.pdf_generate_tagged_pdf),
+                generate_document_outline: Some(CONFIG.chrome.pdf_generate_document_outline),
                 ..Default::default()
             })
             .await?
