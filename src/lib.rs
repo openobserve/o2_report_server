@@ -399,21 +399,7 @@ pub async fn generate_report(
             log::error!(
                 "[REPORT] error finding the span element for dashboard {dashboard_id}: {e}"
             );
-            let page_url = page.url().await;
-            take_screenshot(&page, org_id, dashboard_id, true).await?;
-            // Take a screenshot before killing the browser to help debug login issues
-            log::info!("killing browser");
-            browser.close().await?;
-            browser.wait().await?;
-            handle.await?;
-            browser.kill().await;
-            if let Err(e) = user_tmp_dir.close() {
-                log::error!("Error closing temporary directory for dashboard {dashboard_id}: {e}");
-            }
-            return Err(anyhow::anyhow!(
-                "[REPORT] error finding the span element for dashboard {dashboard_id}: {e}: current url: {:#?}. Some panels could not be loaded within the timeout.",
-                page_url
-            ));
+            log::info!("[REPORT] proceeding with whatever data is loaded until now");
         }
         Ok(dur) => {
             log::info!(
