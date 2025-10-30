@@ -75,6 +75,83 @@ Following are the ENVs related to chrome and SMTP. * means required -
 <td>Browser window height</td>
 <td>730</td>
 </tr>
+<tr>
+<td><code>ZO_CHROME_ADDITIONAL_ARGS</code></td>
+<td>Additional Chrome command-line arguments (comma-separated). Use this to pass custom flags to Chrome</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ZO_CHROME_DISABLE_DEFAULT_ARGS</code></td>
+<td>Disable Chrome's default arguments. Set to true to launch Chrome without any default command-line arguments</td>
+<td>false</td>
+</tr>
+
+<tr><td colspan="3"><strong>PDF Generation Settings</strong></td></tr>
+<tr>
+<td><code>ZO_PDF_LANDSCAPE</code></td>
+<td>Paper orientation. Set to true for landscape, false for portrait</td>
+<td>true</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_DISPLAY_HEADER_FOOTER</code></td>
+<td>Display header and footer in the PDF</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_PRINT_BACKGROUND</code></td>
+<td>Print background graphics in the PDF</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_SCALE</code></td>
+<td>Scale of the webpage rendering</td>
+<td>1.0</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_PAPER_WIDTH</code></td>
+<td>Paper width in inches (US Letter is 8.5)</td>
+<td>8.5</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_PAPER_HEIGHT</code></td>
+<td>Paper height in inches (US Letter is 11)</td>
+<td>11.0</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_MARGIN_TOP</code></td>
+<td>Top margin in inches (~1cm)</td>
+<td>0.4</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_MARGIN_BOTTOM</code></td>
+<td>Bottom margin in inches (~1cm)</td>
+<td>0.4</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_MARGIN_LEFT</code></td>
+<td>Left margin in inches (~1cm)</td>
+<td>0.4</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_MARGIN_RIGHT</code></td>
+<td>Right margin in inches (~1cm)</td>
+<td>0.4</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_PREFER_CSS_PAGE_SIZE</code></td>
+<td>Prefer page size as defined by CSS. If false, content will be scaled to fit paper size</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_GENERATE_TAGGED_PDF</code></td>
+<td>Generate tagged (accessible) PDF for screen readers and assistive technologies</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>ZO_PDF_GENERATE_DOCUMENT_OUTLINE</code></td>
+<td>Embed the document outline into the PDF for navigation</td>
+<td>false</td>
+</tr>
 
 <tr><td colspan="3"><strong>SMTP Settings</strong></td></tr>
 <tr>
@@ -152,6 +229,25 @@ ZO_SMTP_ENCRYPTION = "ssltls" # Or "starttls"
 
 ZO_CHROME_WINDOW_WIDTH = 1440
 ZO_CHROME_WINDOW_HEIGHT = 730
+
+# Additional Chrome arguments (optional)
+# ZO_CHROME_ADDITIONAL_ARGS = "--disable-gpu,--disable-dev-shm-usage"
+# ZO_CHROME_DISABLE_DEFAULT_ARGS = false
+
+# PDF Generation (Optional - defaults shown)
+ZO_PDF_LANDSCAPE = true
+ZO_PDF_SCALE = 1.0
+ZO_PDF_PAPER_WIDTH = 8.5
+ZO_PDF_PAPER_HEIGHT = 11.0
+ZO_PDF_MARGIN_TOP = 0.4
+ZO_PDF_MARGIN_BOTTOM = 0.4
+ZO_PDF_MARGIN_LEFT = 0.4
+ZO_PDF_MARGIN_RIGHT = 0.4
+# ZO_PDF_PRINT_BACKGROUND = false
+# ZO_PDF_DISPLAY_HEADER_FOOTER = false
+# ZO_PDF_PREFER_CSS_PAGE_SIZE = false
+# ZO_PDF_GENERATE_TAGGED_PDF = false
+# ZO_PDF_GENERATE_DOCUMENT_OUTLINE = false
 ```
 
 On the OpenObserve part, you need to include the below ENVs -

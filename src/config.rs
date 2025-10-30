@@ -82,6 +82,85 @@ pub struct Chrome {
     pub chrome_additional_args: String,
     #[env_config(name = "ZO_CHROME_DISABLE_DEFAULT_ARGS", default = false)]
     pub chrome_disable_default_args: bool,
+    // PDF generation parameters
+    #[env_config(
+        name = "ZO_PDF_LANDSCAPE",
+        default = true,
+        help = "Paper orientation. Set to true for landscape, false for portrait"
+    )]
+    pub pdf_landscape: bool,
+    #[env_config(
+        name = "ZO_PDF_DISPLAY_HEADER_FOOTER",
+        default = false,
+        help = "Display header and footer in the PDF"
+    )]
+    pub pdf_display_header_footer: bool,
+    #[env_config(
+        name = "ZO_PDF_PRINT_BACKGROUND",
+        default = false,
+        help = "Print background graphics in the PDF"
+    )]
+    pub pdf_print_background: bool,
+    #[env_config(
+        name = "ZO_PDF_SCALE",
+        default = 1.0,
+        help = "Scale of the webpage rendering. Default is 1.0"
+    )]
+    pub pdf_scale: f64,
+    #[env_config(
+        name = "ZO_PDF_PAPER_WIDTH",
+        default = 8.5,
+        help = "Paper width in inches. Default is 8.5 inches (US Letter)"
+    )]
+    pub pdf_paper_width: f64,
+    #[env_config(
+        name = "ZO_PDF_PAPER_HEIGHT",
+        default = 11.0,
+        help = "Paper height in inches. Default is 11 inches (US Letter)"
+    )]
+    pub pdf_paper_height: f64,
+    #[env_config(
+        name = "ZO_PDF_MARGIN_TOP",
+        default = 0.4,
+        help = "Top margin in inches. Default is 0.4 inches (~1cm)"
+    )]
+    pub pdf_margin_top: f64,
+    #[env_config(
+        name = "ZO_PDF_MARGIN_BOTTOM",
+        default = 0.4,
+        help = "Bottom margin in inches. Default is 0.4 inches (~1cm)"
+    )]
+    pub pdf_margin_bottom: f64,
+    #[env_config(
+        name = "ZO_PDF_MARGIN_LEFT",
+        default = 0.4,
+        help = "Left margin in inches. Default is 0.4 inches (~1cm)"
+    )]
+    pub pdf_margin_left: f64,
+    #[env_config(
+        name = "ZO_PDF_MARGIN_RIGHT",
+        default = 0.4,
+        help = "Right margin in inches. Default is 0.4 inches (~1cm)"
+    )]
+    pub pdf_margin_right: f64,
+    #[env_config(
+        name = "ZO_PDF_PREFER_CSS_PAGE_SIZE",
+        default = false,
+        help = "Prefer page size as defined by CSS. If false, content will be scaled to fit paper size"
+    )]
+    pub pdf_prefer_css_page_size: bool,
+    #[env_config(
+        name = "ZO_PDF_GENERATE_TAGGED_PDF",
+        default = false,
+        help = "Generate tagged (accessible) PDF for screen readers and assistive technologies"
+    )]
+    pub pdf_generate_tagged_pdf: bool,
+    #[env_config(
+        name = "ZO_PDF_GENERATE_DOCUMENT_OUTLINE",
+        default = false,
+        help = "Embed the document outline into the PDF for navigation"
+    )]
+    pub pdf_generate_document_outline: bool,
 }
 
 #[derive(EnvConfig)]
