@@ -462,20 +462,34 @@ pub async fn generate_report(
     // Convert the page into pdf
     let attachment_data = match report_type {
         ReportType::PDF => {
+            // Helper function to convert string to Option<bool>
+            let parse_bool_opt = |s: &str| -> Option<bool> {
+                match s.trim().to_lowercase().as_str() {
+                    "true" => Some(true),
+                    "false" => Some(false),
+                    _ => None,
+                }
+            };
+
+            // Helper function to parse string to Option<f64>
+            let parse_f64_opt = |s: &str| -> Option<f64> { s.trim().parse::<f64>().ok() };
+
             page.pdf(PrintToPdfParams {
                 landscape: Some(CONFIG.chrome.pdf_landscape),
-                display_header_footer: Some(CONFIG.chrome.pdf_display_header_footer),
-                print_background: Some(CONFIG.chrome.pdf_print_background),
-                scale: Some(CONFIG.chrome.pdf_scale),
-                paper_width: Some(CONFIG.chrome.pdf_paper_width),
-                paper_height: Some(CONFIG.chrome.pdf_paper_height),
-                margin_top: Some(CONFIG.chrome.pdf_margin_top),
-                margin_bottom: Some(CONFIG.chrome.pdf_margin_bottom),
-                margin_left: Some(CONFIG.chrome.pdf_margin_left),
-                margin_right: Some(CONFIG.chrome.pdf_margin_right),
-                prefer_css_page_size: Some(CONFIG.chrome.pdf_prefer_css_page_size),
-                generate_tagged_pdf: Some(CONFIG.chrome.pdf_generate_tagged_pdf),
-                generate_document_outline: Some(CONFIG.chrome.pdf_generate_document_outline),
+                display_header_footer: parse_bool_opt(&CONFIG.chrome.pdf_display_header_footer),
+                print_background: parse_bool_opt(&CONFIG.chrome.pdf_print_background),
+                scale: parse_f64_opt(&CONFIG.chrome.pdf_scale),
+                paper_width: parse_f64_opt(&CONFIG.chrome.pdf_paper_width),
+                paper_height: parse_f64_opt(&CONFIG.chrome.pdf_paper_height),
+                margin_top: parse_f64_opt(&CONFIG.chrome.pdf_margin_top),
+                margin_bottom: parse_f64_opt(&CONFIG.chrome.pdf_margin_bottom),
+                margin_left: parse_f64_opt(&CONFIG.chrome.pdf_margin_left),
+                margin_right: parse_f64_opt(&CONFIG.chrome.pdf_margin_right),
+                prefer_css_page_size: parse_bool_opt(&CONFIG.chrome.pdf_prefer_css_page_size),
+                generate_tagged_pdf: parse_bool_opt(&CONFIG.chrome.pdf_generate_tagged_pdf),
+                generate_document_outline: parse_bool_opt(
+                    &CONFIG.chrome.pdf_generate_document_outline,
+                ),
                 ..Default::default()
             })
             .await?

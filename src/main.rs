@@ -43,6 +43,64 @@ async fn main() -> Result<(), anyhow::Error> {
         panic!("Report User email and password must be specified");
     }
 
+    // Log configured Chrome PDF parameters
+    log::info!("Chrome PDF Configuration:");
+    log::info!("  pdf_landscape: {}", CONFIG.chrome.pdf_landscape);
+
+    let display_opt = |s: &str| {
+        if s.is_empty() {
+            "None (browser default)".to_string()
+        } else {
+            format!("Some({})", s)
+        }
+    };
+
+    log::info!(
+        "  pdf_display_header_footer: {}",
+        display_opt(&CONFIG.chrome.pdf_display_header_footer)
+    );
+    log::info!(
+        "  pdf_print_background: {}",
+        display_opt(&CONFIG.chrome.pdf_print_background)
+    );
+    log::info!("  pdf_scale: {}", display_opt(&CONFIG.chrome.pdf_scale));
+    log::info!(
+        "  pdf_paper_width: {}",
+        display_opt(&CONFIG.chrome.pdf_paper_width)
+    );
+    log::info!(
+        "  pdf_paper_height: {}",
+        display_opt(&CONFIG.chrome.pdf_paper_height)
+    );
+    log::info!(
+        "  pdf_margin_top: {}",
+        display_opt(&CONFIG.chrome.pdf_margin_top)
+    );
+    log::info!(
+        "  pdf_margin_bottom: {}",
+        display_opt(&CONFIG.chrome.pdf_margin_bottom)
+    );
+    log::info!(
+        "  pdf_margin_left: {}",
+        display_opt(&CONFIG.chrome.pdf_margin_left)
+    );
+    log::info!(
+        "  pdf_margin_right: {}",
+        display_opt(&CONFIG.chrome.pdf_margin_right)
+    );
+    log::info!(
+        "  pdf_prefer_css_page_size: {}",
+        display_opt(&CONFIG.chrome.pdf_prefer_css_page_size)
+    );
+    log::info!(
+        "  pdf_generate_tagged_pdf: {}",
+        display_opt(&CONFIG.chrome.pdf_generate_tagged_pdf)
+    );
+    log::info!(
+        "  pdf_generate_document_outline: {}",
+        display_opt(&CONFIG.chrome.pdf_generate_document_outline)
+    );
+
     let haddr: SocketAddr = if CONFIG.http.ipv6_enabled {
         format!("[::]:{}", CONFIG.http.port).parse()?
     } else {

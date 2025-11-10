@@ -91,76 +91,76 @@ pub struct Chrome {
     pub pdf_landscape: bool,
     #[env_config(
         name = "ZO_PDF_DISPLAY_HEADER_FOOTER",
-        default = false,
-        help = "Display header and footer in the PDF"
+        default = "",
+        help = "Display header and footer in the PDF. Set to 'true' or 'false'. When empty, uses browser default"
     )]
-    pub pdf_display_header_footer: bool,
+    pub pdf_display_header_footer: String,
     #[env_config(
         name = "ZO_PDF_PRINT_BACKGROUND",
-        default = false,
-        help = "Print background graphics in the PDF"
+        default = "",
+        help = "Print background graphics in the PDF. Set to 'true' or 'false'. When empty, uses browser default"
     )]
-    pub pdf_print_background: bool,
+    pub pdf_print_background: String,
     #[env_config(
         name = "ZO_PDF_SCALE",
-        default = 1.0,
-        help = "Scale of the webpage rendering. Default is 1.0"
+        default = "",
+        help = "Scale of the webpage rendering (e.g., 1.0 for 100%). When empty, uses browser default"
     )]
-    pub pdf_scale: f64,
+    pub pdf_scale: String,
     #[env_config(
         name = "ZO_PDF_PAPER_WIDTH",
-        default = 8.5,
-        help = "Paper width in inches. Default is 8.5 inches (US Letter)"
+        default = "",
+        help = "Paper width in inches (e.g., 8.5 for US Letter). When empty, uses browser default"
     )]
-    pub pdf_paper_width: f64,
+    pub pdf_paper_width: String,
     #[env_config(
         name = "ZO_PDF_PAPER_HEIGHT",
-        default = 11.0,
-        help = "Paper height in inches. Default is 11 inches (US Letter)"
+        default = "",
+        help = "Paper height in inches (e.g., 11.0 for US Letter). When empty, uses browser default"
     )]
-    pub pdf_paper_height: f64,
+    pub pdf_paper_height: String,
     #[env_config(
         name = "ZO_PDF_MARGIN_TOP",
-        default = 0.4,
-        help = "Top margin in inches. Default is 0.4 inches (~1cm)"
+        default = "",
+        help = "Top margin in inches. When empty, uses browser default"
     )]
-    pub pdf_margin_top: f64,
+    pub pdf_margin_top: String,
     #[env_config(
         name = "ZO_PDF_MARGIN_BOTTOM",
-        default = 0.4,
-        help = "Bottom margin in inches. Default is 0.4 inches (~1cm)"
+        default = "",
+        help = "Bottom margin in inches. When empty, uses browser default"
     )]
-    pub pdf_margin_bottom: f64,
+    pub pdf_margin_bottom: String,
     #[env_config(
         name = "ZO_PDF_MARGIN_LEFT",
-        default = 0.4,
-        help = "Left margin in inches. Default is 0.4 inches (~1cm)"
+        default = "",
+        help = "Left margin in inches. When empty, uses browser default"
     )]
-    pub pdf_margin_left: f64,
+    pub pdf_margin_left: String,
     #[env_config(
         name = "ZO_PDF_MARGIN_RIGHT",
-        default = 0.4,
-        help = "Right margin in inches. Default is 0.4 inches (~1cm)"
+        default = "",
+        help = "Right margin in inches. When empty, uses browser default"
     )]
-    pub pdf_margin_right: f64,
+    pub pdf_margin_right: String,
     #[env_config(
         name = "ZO_PDF_PREFER_CSS_PAGE_SIZE",
-        default = false,
-        help = "Prefer page size as defined by CSS. If false, content will be scaled to fit paper size"
+        default = "",
+        help = "Prefer page size as defined by CSS. Set to 'true' or 'false'. When empty, uses browser default"
     )]
-    pub pdf_prefer_css_page_size: bool,
+    pub pdf_prefer_css_page_size: String,
     #[env_config(
         name = "ZO_PDF_GENERATE_TAGGED_PDF",
-        default = false,
-        help = "Generate tagged (accessible) PDF for screen readers and assistive technologies"
+        default = "",
+        help = "Generate tagged (accessible) PDF for screen readers. Set to 'true' or 'false'. When empty, uses browser default"
     )]
-    pub pdf_generate_tagged_pdf: bool,
+    pub pdf_generate_tagged_pdf: String,
     #[env_config(
         name = "ZO_PDF_GENERATE_DOCUMENT_OUTLINE",
-        default = false,
-        help = "Embed the document outline into the PDF for navigation"
+        default = "",
+        help = "Embed the document outline into the PDF. Set to 'true' or 'false'. When empty, uses browser default"
     )]
-    pub pdf_generate_document_outline: bool,
+    pub pdf_generate_document_outline: String,
 }
 
 #[derive(EnvConfig)]
