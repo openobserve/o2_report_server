@@ -24,8 +24,11 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    // Initialize the CONFIG ENVs - force lazy initialization to load dotenv
+    let _ = &*CONFIG;
+
     if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "info");
+        std::env::set_var("RUST_LOG", "off,o2_report_generator=info");
     }
     env_logger::init();
 
