@@ -27,10 +27,10 @@ async fn main() -> Result<(), anyhow::Error> {
     // Initialize the CONFIG ENVs - force lazy initialization to load dotenv
     let _ = &*CONFIG;
 
-    if std::env::var("RUST_LOG").is_err() {
-        std::env::set_var("RUST_LOG", "off,o2_report_generator=info");
-    }
-    env_logger::init();
+    env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("off,o2_report_generator=info"),
+    )
+    .init();
 
     // cli mode
     if cli::cli().await? {
