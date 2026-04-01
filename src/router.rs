@@ -118,7 +118,9 @@ pub async fn send_report(
         ));
     }
     
-    let (attachment_data, email_dashboard_url) = match crate::generate_report(
+    let image_preview = report.email_details.image_preview;
+
+    let (attachment_data, email_dashboard_url, preview_image) = match crate::generate_report(
         &dashboard_for_report,
         &org_id,
         &CONFIG.auth.user_email,
@@ -126,6 +128,7 @@ pub async fn send_report(
         &report.email_details.dashb_url,
         timezone,
         report_type.clone(),
+        image_preview,
     )
     .await
     {
@@ -157,6 +160,7 @@ pub async fn send_report(
             reply_to: CONFIG.smtp.smtp_reply_to.to_string(),
             client: &SMTP_CLIENT,
         },
+        preview_image,
     )
     .await
     {
