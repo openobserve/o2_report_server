@@ -32,9 +32,13 @@ use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum ReportType {
+    #[serde(alias = "PDF")]
     PDF,
+    #[serde(alias = "Cache")]
     Cache,
+    #[serde(alias = "PNG")]
     PNG,
 }
 
@@ -43,9 +47,12 @@ fn default_report_type() -> ReportType {
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum EmailAttachmentType {
+    #[serde(alias = "Standard")]
     Standard, // Sends the email as a traditional attachment the user can download and (pre)view
-    Inline,   // Sends the attachment inline in the email body
+    #[serde(alias = "Inline")]
+    Inline, // Sends the attachment inline in the email body
 }
 
 fn default_attachment_type() -> EmailAttachmentType {
@@ -477,25 +484,26 @@ pub async fn generate_report(
             // Helper function to parse string to Option<f64>
             let parse_f64_opt = |s: &str| -> Option<f64> { s.trim().parse::<f64>().ok() };
 
-            let pdf_data = page.pdf(PrintToPdfParams {
-                landscape: Some(CONFIG.chrome.pdf_landscape),
-                display_header_footer: parse_bool_opt(&CONFIG.chrome.pdf_display_header_footer),
-                print_background: parse_bool_opt(&CONFIG.chrome.pdf_print_background),
-                scale: parse_f64_opt(&CONFIG.chrome.pdf_scale),
-                paper_width: parse_f64_opt(&CONFIG.chrome.pdf_paper_width),
-                paper_height: parse_f64_opt(&CONFIG.chrome.pdf_paper_height),
-                margin_top: parse_f64_opt(&CONFIG.chrome.pdf_margin_top),
-                margin_bottom: parse_f64_opt(&CONFIG.chrome.pdf_margin_bottom),
-                margin_left: parse_f64_opt(&CONFIG.chrome.pdf_margin_left),
-                margin_right: parse_f64_opt(&CONFIG.chrome.pdf_margin_right),
-                prefer_css_page_size: parse_bool_opt(&CONFIG.chrome.pdf_prefer_css_page_size),
-                generate_tagged_pdf: parse_bool_opt(&CONFIG.chrome.pdf_generate_tagged_pdf),
-                generate_document_outline: parse_bool_opt(
-                    &CONFIG.chrome.pdf_generate_document_outline,
-                ),
-                ..Default::default()
-            })
-            .await?;
+            let pdf_data = page
+                .pdf(PrintToPdfParams {
+                    landscape: Some(CONFIG.chrome.pdf_landscape),
+                    display_header_footer: parse_bool_opt(&CONFIG.chrome.pdf_display_header_footer),
+                    print_background: parse_bool_opt(&CONFIG.chrome.pdf_print_background),
+                    scale: parse_f64_opt(&CONFIG.chrome.pdf_scale),
+                    paper_width: parse_f64_opt(&CONFIG.chrome.pdf_paper_width),
+                    paper_height: parse_f64_opt(&CONFIG.chrome.pdf_paper_height),
+                    margin_top: parse_f64_opt(&CONFIG.chrome.pdf_margin_top),
+                    margin_bottom: parse_f64_opt(&CONFIG.chrome.pdf_margin_bottom),
+                    margin_left: parse_f64_opt(&CONFIG.chrome.pdf_margin_left),
+                    margin_right: parse_f64_opt(&CONFIG.chrome.pdf_margin_right),
+                    prefer_css_page_size: parse_bool_opt(&CONFIG.chrome.pdf_prefer_css_page_size),
+                    generate_tagged_pdf: parse_bool_opt(&CONFIG.chrome.pdf_generate_tagged_pdf),
+                    generate_document_outline: parse_bool_opt(
+                        &CONFIG.chrome.pdf_generate_document_outline,
+                    ),
+                    ..Default::default()
+                })
+                .await?;
 
             let preview = if image_preview {
                 match take_screenshot(&page, org_id, dashboard_id, false).await {
@@ -513,7 +521,10 @@ pub async fn generate_report(
 
             (pdf_data, preview)
         }
-        ReportType::PNG => (take_screenshot(&page, org_id, dashboard_id, false).await?, None),
+        ReportType::PNG => (
+            take_screenshot(&page, org_id, dashboard_id, false).await?,
+            None,
+        ),
         // No need to capture pdf when report type is cache
         ReportType::Cache => (vec![], None),
     };
@@ -583,18 +594,15 @@ async fn send_email(
                 .body(attachment_data.to_owned(), attachment_type);
             match preview_image {
                 Some(png_data) => {
-                    let preview_cid = format!(
-                        "{}.preview.png",
-                        sanitize_filename(&email_details.title)
-                    )
-                    .replace(" ", "_");
+                    let preview_cid =
+                        format!("{}.preview.png", sanitize_filename(&email_details.title))
+                            .replace(" ", "_");
                     let email_html = SinglePart::html(format!(
                         "<p>{}</p><br><img src='cid:{preview_cid}' alt='Dashboard Preview'><br><p><a href='{}' target='_blank'>Link to dashboard</a></p>",
                         email_details.message, email_details.dashb_url
                     ));
-                    let preview_attachment =
-                        lettre::message::Attachment::new_inline(preview_cid)
-                            .body(png_data, ContentType::parse("image/png")?);
+                    let preview_attachment = lettre::message::Attachment::new_inline(preview_cid)
+                        .body(png_data, ContentType::parse("image/png")?);
                     email
                         .multipart(
                             MultiPart::mixed()
