@@ -32,9 +32,13 @@ use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum ReportType {
+    #[serde(alias = "PDF")]
     PDF,
+    #[serde(alias = "Cache")]
     Cache,
+    #[serde(alias = "PNG")]
     PNG,
 }
 
@@ -43,9 +47,12 @@ fn default_report_type() -> ReportType {
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum EmailAttachmentType {
+    #[serde(alias = "Standard")]
     Standard, // Sends the email as a traditional attachment the user can download and (pre)view
-    Inline,   // Sends the attachment inline in the email body
+    #[serde(alias = "Inline")]
+    Inline, // Sends the attachment inline in the email body
 }
 
 fn default_attachment_type() -> EmailAttachmentType {
@@ -86,6 +93,8 @@ pub struct EmailDetails {
     pub name: String,
     pub message: String,
     pub dashb_url: String,
+    #[serde(default)]
+    pub image_preview: bool,
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
@@ -160,7 +169,8 @@ pub async fn generate_report(
     web_url: &str,
     timezone: &str,
     report_type: ReportType,
-) -> Result<(Vec<u8>, String), anyhow::Error> {
+    image_preview: bool,
+) -> Result<(Vec<u8>, String, Option<Vec<u8>>), anyhow::Error> {
     let dashboard_id = &dashboard.dashboard;
     let folder_id = &dashboard.folder;
 
@@ -460,7 +470,7 @@ pub async fn generate_report(
 
     // Last two elements loaded means atleast the metric components have loaded.
     // Convert the page into pdf
-    let attachment_data = match report_type {
+    let (attachment_data, preview_image) = match report_type {
         ReportType::PDF => {
             // Helper function to convert string to Option<bool>
             let parse_bool_opt = |s: &str| -> Option<bool> {
@@ -474,29 +484,49 @@ pub async fn generate_report(
             // Helper function to parse string to Option<f64>
             let parse_f64_opt = |s: &str| -> Option<f64> { s.trim().parse::<f64>().ok() };
 
-            page.pdf(PrintToPdfParams {
-                landscape: Some(CONFIG.chrome.pdf_landscape),
-                display_header_footer: parse_bool_opt(&CONFIG.chrome.pdf_display_header_footer),
-                print_background: parse_bool_opt(&CONFIG.chrome.pdf_print_background),
-                scale: parse_f64_opt(&CONFIG.chrome.pdf_scale),
-                paper_width: parse_f64_opt(&CONFIG.chrome.pdf_paper_width),
-                paper_height: parse_f64_opt(&CONFIG.chrome.pdf_paper_height),
-                margin_top: parse_f64_opt(&CONFIG.chrome.pdf_margin_top),
-                margin_bottom: parse_f64_opt(&CONFIG.chrome.pdf_margin_bottom),
-                margin_left: parse_f64_opt(&CONFIG.chrome.pdf_margin_left),
-                margin_right: parse_f64_opt(&CONFIG.chrome.pdf_margin_right),
-                prefer_css_page_size: parse_bool_opt(&CONFIG.chrome.pdf_prefer_css_page_size),
-                generate_tagged_pdf: parse_bool_opt(&CONFIG.chrome.pdf_generate_tagged_pdf),
-                generate_document_outline: parse_bool_opt(
-                    &CONFIG.chrome.pdf_generate_document_outline,
-                ),
-                ..Default::default()
-            })
-            .await?
+            let pdf_data = page
+                .pdf(PrintToPdfParams {
+                    landscape: Some(CONFIG.chrome.pdf_landscape),
+                    display_header_footer: parse_bool_opt(&CONFIG.chrome.pdf_display_header_footer),
+                    print_background: parse_bool_opt(&CONFIG.chrome.pdf_print_background),
+                    scale: parse_f64_opt(&CONFIG.chrome.pdf_scale),
+                    paper_width: parse_f64_opt(&CONFIG.chrome.pdf_paper_width),
+                    paper_height: parse_f64_opt(&CONFIG.chrome.pdf_paper_height),
+                    margin_top: parse_f64_opt(&CONFIG.chrome.pdf_margin_top),
+                    margin_bottom: parse_f64_opt(&CONFIG.chrome.pdf_margin_bottom),
+                    margin_left: parse_f64_opt(&CONFIG.chrome.pdf_margin_left),
+                    margin_right: parse_f64_opt(&CONFIG.chrome.pdf_margin_right),
+                    prefer_css_page_size: parse_bool_opt(&CONFIG.chrome.pdf_prefer_css_page_size),
+                    generate_tagged_pdf: parse_bool_opt(&CONFIG.chrome.pdf_generate_tagged_pdf),
+                    generate_document_outline: parse_bool_opt(
+                        &CONFIG.chrome.pdf_generate_document_outline,
+                    ),
+                    ..Default::default()
+                })
+                .await?;
+
+            let preview = if image_preview {
+                match take_screenshot(&page, org_id, dashboard_id, false).await {
+                    Ok(png) => Some(png),
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to capture image preview for dashboard {dashboard_id}: {e}"
+                        );
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
+            (pdf_data, preview)
         }
-        ReportType::PNG => take_screenshot(&page, org_id, dashboard_id, false).await?,
+        ReportType::PNG => (
+            take_screenshot(&page, org_id, dashboard_id, false).await?,
+            None,
+        ),
         // No need to capture pdf when report type is cache
-        ReportType::Cache => vec![],
+        ReportType::Cache => (vec![], None),
     };
 
     browser.close().await?;
@@ -507,7 +537,7 @@ pub async fn generate_report(
     if let Err(e) = user_tmp_dir.close() {
         log::error!("Error closing temporary directory: {e}");
     }
-    Ok((attachment_data, email_dashb_url))
+    Ok((attachment_data, email_dashb_url, preview_image))
 }
 
 /// Sends emails to the [`Report`] recepients
@@ -518,6 +548,7 @@ async fn send_email(
     email_attachment_type: EmailAttachmentType,
     email_details: EmailDetails,
     config: SmtpConfig,
+    preview_image: Option<Vec<u8>>,
 ) -> Result<(), anyhow::Error> {
     let mut recepients = vec![];
     for recepient in &email_details.recipients {
@@ -559,19 +590,42 @@ async fn send_email(
 
     let email_message = match email_attachment_type {
         EmailAttachmentType::Standard => {
-            let email_html = SinglePart::html(format!(
-                "{}\n\n<p><a href='{}' target='_blank'>Link to dashboard</a></p>",
-                email_details.message, email_details.dashb_url
-            ));
-            let attachment = lettre::message::Attachment::new(attachment_name)
+            let pdf_attachment = lettre::message::Attachment::new(attachment_name.clone())
                 .body(attachment_data.to_owned(), attachment_type);
-            email
-                .multipart(
-                    MultiPart::mixed()
-                        .singlepart(email_html)
-                        .singlepart(attachment),
-                )
-                .unwrap()
+            match preview_image {
+                Some(png_data) => {
+                    let preview_cid =
+                        format!("{}.preview.png", sanitize_filename(&email_details.title))
+                            .replace(" ", "_");
+                    let email_html = SinglePart::html(format!(
+                        "<p>{}</p><br><img src='cid:{preview_cid}' alt='Dashboard Preview'><br><p><a href='{}' target='_blank'>Link to dashboard</a></p>",
+                        email_details.message, email_details.dashb_url
+                    ));
+                    let preview_attachment = lettre::message::Attachment::new_inline(preview_cid)
+                        .body(png_data, ContentType::parse("image/png")?);
+                    email
+                        .multipart(
+                            MultiPart::mixed()
+                                .singlepart(email_html)
+                                .singlepart(preview_attachment)
+                                .singlepart(pdf_attachment),
+                        )
+                        .unwrap()
+                }
+                None => {
+                    let email_html = SinglePart::html(format!(
+                        "{}\n\n<p><a href='{}' target='_blank'>Link to dashboard</a></p>",
+                        email_details.message, email_details.dashb_url
+                    ));
+                    email
+                        .multipart(
+                            MultiPart::mixed()
+                                .singlepart(email_html)
+                                .singlepart(pdf_attachment),
+                        )
+                        .unwrap()
+                }
+            }
         }
         EmailAttachmentType::Inline => {
             // cid should work in most email servers (should work with gmail / outlook)
