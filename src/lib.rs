@@ -31,7 +31,7 @@ use lettre::{
 use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum ReportType {
     #[serde(alias = "PDF")]
@@ -40,6 +40,8 @@ pub enum ReportType {
     Cache,
     #[serde(alias = "PNG")]
     PNG,
+    #[serde(alias = "CSV")]
+    Csv,
 }
 
 fn default_report_type() -> ReportType {
@@ -527,6 +529,31 @@ pub async fn generate_report(
         ),
         // No need to capture pdf when report type is cache
         ReportType::Cache => (vec![], None),
+        ReportType::Csv => {
+            // Call the JS function exposed by the frontend; it returns a JSON object
+            // { [panelId]: { title: string, csv: string } }
+            let evaluate_result = page
+                .evaluate(
+                    "(function() { \
+                        try { \
+                            return JSON.stringify(window.oo_getAllPanelsCsv ? window.oo_getAllPanelsCsv() : {}); \
+                        } catch(e) { \
+                            return JSON.stringify({}); \
+                        } \
+                    })()",
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to evaluate oo_getAllPanelsCsv: {e}"))?;
+
+            let json_str: String = evaluate_result
+                .into_value()
+                .map_err(|e| anyhow::anyhow!("Failed to read panel CSV data from page: {e}"))?;
+
+            let csv_zip = build_csv_zip(&json_str)
+                .map_err(|e| anyhow::anyhow!("Failed to build CSV zip: {e}"))?;
+
+            (csv_zip, None)
+        }
     };
 
     browser.close().await?;
@@ -570,13 +597,21 @@ async fn send_email(
     let attachment_type = match report_type {
         ReportType::PDF => ContentType::parse("application/pdf")?,
         ReportType::PNG => ContentType::parse("image/png")?,
+        ReportType::Csv => ContentType::parse("application/zip")?,
         ReportType::Cache => return Err(anyhow::anyhow!("Cached reports are not sent via email")),
     };
 
     let attachment_file_extension = match report_type {
         ReportType::PDF => "pdf",
         ReportType::PNG => "png",
+        ReportType::Csv => "zip",
         ReportType::Cache => return Err(anyhow::anyhow!("Cached reports are not sent via email")),
+    };
+
+    // CSV reports are always sent as a standard attachment; inline zip makes no sense
+    let email_attachment_type = match report_type {
+        ReportType::Csv => EmailAttachmentType::Standard,
+        _ => email_attachment_type,
     };
 
     // spaces in names is not handled well by some email servers, so replace with _
@@ -723,4 +758,43 @@ fn sanitize_filename(filename: &str) -> String {
             }
         })
         .collect()
+}
+
+/// Packs the panel CSV data returned by `window.oo_getAllPanelsCsv()` into a
+/// zip archive (one `.csv` file per panel).
+///
+/// `panels_json` must be a JSON object of the shape:
+/// `{ "<panelId>": { "title": "<string>", "csv": "<string>" }, ... }`
+fn build_csv_zip(panels_json: &str) -> Result<Vec<u8>, anyhow::Error> {
+    use std::io::Write;
+
+    let panels: serde_json::Value = serde_json::from_str(panels_json)
+        .map_err(|e| anyhow::anyhow!("Invalid panel JSON: {e}"))?;
+
+    let zip_buf = Vec::new();
+    let cursor = std::io::Cursor::new(zip_buf);
+    let mut zip = zip::ZipWriter::new(cursor);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    if let serde_json::Value::Object(panels_map) = &panels {
+        if panels_map.is_empty() {
+            return Err(anyhow::anyhow!(
+                "No panel CSV data returned from the page"
+            ));
+        }
+        for (_, panel_data) in panels_map {
+            if let (Some(title), Some(csv)) = (
+                panel_data.get("title").and_then(|v| v.as_str()),
+                panel_data.get("csv").and_then(|v| v.as_str()),
+            ) {
+                let filename = format!("{}.csv", sanitize_filename(title));
+                zip.start_file(filename, options)?;
+                zip.write_all(csv.as_bytes())?;
+            }
+        }
+    }
+
+    let cursor = zip.finish()?;
+    Ok(cursor.into_inner())
 }
