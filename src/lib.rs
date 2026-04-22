@@ -783,12 +783,21 @@ fn build_csv_zip(panels_json: &str) -> Result<Vec<u8>, anyhow::Error> {
                 "No panel CSV data returned from the page"
             ));
         }
+        let mut seen_names: std::collections::HashMap<String, u32> =
+            std::collections::HashMap::new();
         for (_, panel_data) in panels_map {
             if let (Some(title), Some(csv)) = (
                 panel_data.get("title").and_then(|v| v.as_str()),
                 panel_data.get("csv").and_then(|v| v.as_str()),
             ) {
-                let filename = format!("{}.csv", sanitize_filename(title));
+                let base = sanitize_filename(title);
+                let count = seen_names.entry(base.clone()).or_insert(0);
+                *count += 1;
+                let filename = if *count == 1 {
+                    format!("{base}.csv")
+                } else {
+                    format!("{base}_{count}.csv")
+                };
                 zip.start_file(filename, options)?;
                 zip.write_all(csv.as_bytes())?;
             }
