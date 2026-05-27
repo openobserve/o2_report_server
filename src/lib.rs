@@ -166,6 +166,7 @@ impl Default for ReportTimerange {
 pub async fn generate_report(
     dashboard: &ReportDashboard,
     org_id: &str,
+    report_name: &str,
     user_id: &str,
     user_pass: &str,
     web_url: &str,
@@ -190,7 +191,7 @@ pub async fn generate_report(
     // Only one tab is supported for now
     let tab_id = &dashboard.tabs[0];
 
-    log::info!("launching browser for dashboard {dashboard_id}");
+    log::info!("[{report_name}] launching browser for dashboard {dashboard_id}");
     let browser_config = get_chrome_launch_options(dashboard.attachment_dimensions.clone())
         .await
         .clone()
@@ -198,7 +199,7 @@ pub async fn generate_report(
         .build()
         .map_err(|e| anyhow::anyhow!("Error building browser config: {e}"))?;
     let (mut browser, mut handler) = Browser::launch(browser_config).await?;
-    log::info!("browser launched");
+    log::info!("[{report_name}] browser launched");
 
     let handle = tokio::task::spawn(async move {
         while let Some(h) = handler.next().await {
@@ -209,7 +210,9 @@ pub async fn generate_report(
         }
     });
 
-    log::info!("Navigating to web url: {web_url}/login?login_as_internal_user=true");
+    log::info!(
+        "[{report_name}] Navigating to web url: {web_url}/login?login_as_internal_user=true"
+    );
     let page = browser
         .new_page(&format!("{web_url}/login?login_as_internal_user=true"))
         .await;
@@ -217,14 +220,14 @@ pub async fn generate_report(
         browser.close().await?;
         browser.wait().await?;
         handle.await?;
-        log::error!("Error creating new page in browser for login");
+        log::error!("[{report_name}] Error creating new page in browser for login");
         return Err(anyhow::anyhow!(
             "Error creating new page in browser for login"
         ));
     }
     let page = page.unwrap();
     page.disable_log().await?;
-    log::info!("headless: new page created");
+    log::info!("[{report_name}] headless: new page created");
     sleep(Duration::from_secs(5)).await;
 
     match page.find_element("input[type='email']").await {
@@ -237,10 +240,10 @@ pub async fn generate_report(
                 "Error finding email input box: current url: {:#?} error: {e}",
                 page_url
             );
-            log::error!("{err_msg}");
+            log::error!("[{report_name}] {err_msg}");
             // Take a screenshot before killing the browser to help debug login issues
             take_screenshot(&page, org_id, dashboard_id, true).await?;
-            log::info!("killing browser");
+            log::info!("[{report_name}] killing browser");
             browser.close().await?;
             browser.wait().await?;
             handle.await?;
@@ -248,16 +251,11 @@ pub async fn generate_report(
             return Err(anyhow::anyhow!("{err_msg}"));
         }
     }
-    log::info!("headless: email input filled");
+    log::info!("[{report_name}] headless: email input filled");
 
     match page.find_element("input[type='password']").await {
         Ok(elem) => {
-            elem.click()
-                .await?
-                .type_str(user_pass)
-                .await?
-                .press_key("Enter")
-                .await?;
+            elem.click().await?.type_str(user_pass).await?;
         }
         Err(e) => {
             let page_url = page.url().await;
@@ -265,9 +263,9 @@ pub async fn generate_report(
                 "Error finding password input box: current url: {:#?} error: {e}",
                 page_url
             );
-            log::error!("{err_msg}");
+            log::error!("[{report_name}] {err_msg}");
             take_screenshot(&page, org_id, dashboard_id, true).await?;
-            log::info!("killing browser");
+            log::info!("[{report_name}] killing browser");
             browser.close().await?;
             browser.wait().await?;
             handle.await?;
@@ -275,7 +273,28 @@ pub async fn generate_report(
             return Err(anyhow::anyhow!("{err_msg}"));
         }
     }
-    log::info!("headless: password input filled");
+    log::info!("[{report_name}] headless: password input filled");
+
+    match page.find_element("button[type='submit']").await {
+        Ok(elem) => {
+            elem.click().await?;
+        }
+        Err(e) => {
+            let page_url = page.url().await;
+            let err_msg = format!(
+                "Error finding submit button for login: current url: {:#?} error: {e}",
+                page_url
+            );
+            log::error!("[{report_name}] {err_msg}");
+            take_screenshot(&page, org_id, dashboard_id, true).await?;
+            log::info!("[{report_name}] killing browser");
+            browser.close().await?;
+            browser.wait().await?;
+            handle.await?;
+            browser.kill().await;
+            return Err(anyhow::anyhow!("{err_msg}"));
+        }
+    }
 
     // Does not seem to work for single page client application
     page.wait_for_navigation().await?;
@@ -295,7 +314,9 @@ pub async fn generate_report(
             let dashb_url = format!(
                 "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&searchtype={search_type}&period={period}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
             );
-            log::debug!("dashb_url for dashboard {folder_id}/{dashboard_id}: {dashb_url}");
+            log::debug!(
+                "[{report_name}] dashb_url for dashboard {folder_id}/{dashboard_id}: {dashb_url}"
+            );
 
             let time_duration: i64 = time_duration.parse()?;
             let end_time = chrono::Utc::now().timestamp_micros();
@@ -347,13 +368,17 @@ pub async fn generate_report(
                 "{web_url}/dashboards/view?org_identifier={org_id}&dashboard={dashboard_id}&folder={folder_id}&tab={tab_id}&refresh=Off&searchtype={search_type}&from={}&to={}&timezone={timezone}&var-Dynamic+filters=%255B%255D&print=true{dashb_vars}",
                 &timerange.from, &timerange.to
             );
-            log::debug!("dashb_url for dashboard {folder_id}/{dashboard_id}: {url}");
+            log::debug!(
+                "[{report_name}] dashb_url for dashboard {folder_id}/{dashboard_id}: {url}"
+            );
 
             (url.clone(), url)
         }
     };
 
-    log::info!("headless: navigating to organization: {web_url}/?org_identifier={org_id}");
+    log::info!(
+        "[{report_name}] headless: navigating to organization: {web_url}/?org_identifier={org_id}"
+    );
     // First navigate to the correct org
     if let Err(e) = page
         .goto(&format!("{web_url}/?org_identifier={org_id}"))
@@ -361,41 +386,41 @@ pub async fn generate_report(
     {
         let page_url = page.url().await;
         log::error!(
-            "Error navigating to organization {org_id}: current uri: {:#?} error: {e}",
+            "[{report_name}] Error navigating to organization {org_id}: current uri: {:#?} error: {e}",
             page_url
         );
         // Take a screenshot before killing the browser to help debug issues
         take_screenshot(&page, org_id, dashboard_id, true).await?;
-        log::info!("killing browser");
+        log::info!("[{report_name}] killing browser");
         browser.close().await?;
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
         if let Err(e) = user_tmp_dir.close() {
-            log::error!("Error closing temporary directory: {e}");
+            log::error!("[{report_name}] Error closing temporary directory: {e}");
         }
         return Err(anyhow::anyhow!("{e}"));
     }
     page.wait_for_navigation().await?;
     sleep(Duration::from_secs(2)).await;
 
-    log::info!("headless: navigated to the organization {org_id}");
-    log::info!("headless: navigating to dashboard url {dashb_url}");
+    log::info!("[{report_name}] headless: navigated to the organization {org_id}");
+    log::info!("[{report_name}] headless: navigating to dashboard url {dashb_url}");
 
     if let Err(e) = page.goto(&dashb_url).await {
         let page_url = page.url().await;
         take_screenshot(&page, org_id, dashboard_id, true).await?;
-        log::info!("killing browser");
+        log::info!("[{report_name}] killing browser");
         browser.close().await?;
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
         log::error!(
-            "Error navigating to dashboard url {dashb_url}: current uri: {:#?} error: {e}",
+            "[{report_name}] Error navigating to dashboard url {dashb_url}: current uri: {:#?} error: {e}",
             page_url
         );
         if let Err(e) = user_tmp_dir.close() {
-            log::error!("Error closing temporary directory: {e}");
+            log::error!("[{report_name}] Error closing temporary directory: {e}");
         }
         return Err(anyhow::anyhow!("{e}"));
     }
@@ -403,33 +428,33 @@ pub async fn generate_report(
     // Wait for navigation does not really wait until it is fully loaded
     page.wait_for_navigation().await?;
 
-    log::info!("waiting for data to load for dashboard {dashboard_id}");
+    log::info!("[{report_name}] waiting for data to load for dashboard {dashboard_id}");
 
     // If the span element is not rendered yet, capture whatever is loaded till now
     match wait_for_panel_data_load(&page).await {
         Err(e) => {
             log::error!(
-                "[REPORT] error finding the span element for dashboard {dashboard_id}: {e}"
+                "[{report_name}] error finding the span element for dashboard {dashboard_id}: {e}"
             );
             let page_url = page.url().await;
             take_screenshot(&page, org_id, dashboard_id, true).await?;
             // Take a screenshot before killing the browser to help debug login issues
-            log::info!("killing browser");
+            log::info!("[{report_name}] killing browser");
             browser.close().await?;
             browser.wait().await?;
             handle.await?;
             browser.kill().await;
             if let Err(e) = user_tmp_dir.close() {
-                log::error!("Error closing temporary directory for dashboard {dashboard_id}: {e}");
+                log::error!("[{report_name}] Error closing temporary directory for dashboard {dashboard_id}: {e}");
             }
             return Err(anyhow::anyhow!(
-                "[REPORT] error finding the span element for dashboard {dashboard_id}: {e}: current url: {:#?}. Some panels could not be loaded within the timeout.",
+                "[{report_name}] error finding the span element for dashboard {dashboard_id}: {e}: current url: {:#?}. Some panels could not be loaded within the timeout.",
                 page_url
             ));
         }
         Ok(dur) => {
             log::info!(
-                "[REPORT] all panel data loaded for report dashboard: {dashboard_id} in {} seconds",
+                "[{report_name}] all panel data loaded for report dashboard: {dashboard_id} in {} seconds",
                 dur.as_secs_f64()
             );
         }
@@ -439,16 +464,16 @@ pub async fn generate_report(
         let page_url = page.url().await;
         take_screenshot(&page, org_id, dashboard_id, true).await?;
         // Take a screenshot before killing the browser to help debug login issues
-        log::info!("killing browser");
+        log::info!("[{report_name}] killing browser");
         browser.close().await?;
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
         if let Err(e) = user_tmp_dir.close() {
-            log::error!("Error closing temporary directory: {e}");
+            log::error!("[{report_name}] Error closing temporary directory: {e}");
         }
         return Err(anyhow::anyhow!(
-            "[REPORT] main html element not rendered yet for dashboard {dashboard_id}; most likely login failed: current url: {:#?} error: {e}",
+            "[{report_name}] main html element not rendered yet for dashboard {dashboard_id}; most likely login failed: current url: {:#?} error: {e}",
             page_url
         ));
     }
@@ -456,16 +481,16 @@ pub async fn generate_report(
         let page_url = page.url().await;
         // Take a screenshot before killing the browser to help debug login issues
         take_screenshot(&page, org_id, dashboard_id, true).await?;
-        log::info!("killing browser");
+        log::info!("[{report_name}] killing browser");
         browser.close().await?;
         browser.wait().await?;
         handle.await?;
         browser.kill().await;
         if let Err(e) = user_tmp_dir.close() {
-            log::error!("Error closing temporary directory: {e}");
+            log::error!("[{report_name}] Error closing temporary directory: {e}");
         }
         return Err(anyhow::anyhow!(
-            "[REPORT] div.displayDiv element not rendered yet for dashboard {dashboard_id}: current url: {:#?} error: {e}",
+            "[{report_name}] div.displayDiv element not rendered yet for dashboard {dashboard_id}: current url: {:#?} error: {e}",
             page_url
         ));
     }
@@ -512,7 +537,7 @@ pub async fn generate_report(
                     Ok(png) => Some(png),
                     Err(e) => {
                         log::warn!(
-                            "Failed to capture image preview for dashboard {dashboard_id}: {e}"
+                            "[{report_name}] Failed to capture image preview for dashboard {dashboard_id}: {e}"
                         );
                         None
                     }
@@ -560,9 +585,9 @@ pub async fn generate_report(
     browser.wait().await?;
     handle.await?;
     browser.kill().await;
-    log::debug!("done with headless browser");
+    log::debug!("[{report_name}] done with headless browser");
     if let Err(e) = user_tmp_dir.close() {
-        log::error!("Error closing temporary directory: {e}");
+        log::error!("[{report_name}] Error closing temporary directory: {e}");
     }
     Ok((attachment_data, email_dashb_url, preview_image))
 }
@@ -779,9 +804,7 @@ fn build_csv_zip(panels_json: &str) -> Result<Vec<u8>, anyhow::Error> {
 
     if let serde_json::Value::Object(panels_map) = &panels {
         if panels_map.is_empty() {
-            return Err(anyhow::anyhow!(
-                "No panel CSV data returned from the page"
-            ));
+            return Err(anyhow::anyhow!("No panel CSV data returned from the page"));
         }
         let mut seen_names: std::collections::HashMap<String, u32> =
             std::collections::HashMap::new();

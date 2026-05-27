@@ -127,6 +127,7 @@ pub async fn send_report(
     let (attachment_data, email_dashboard_url, preview_image) = match crate::generate_report(
         &dashboard_for_report,
         &org_id,
+        &report_name,
         &CONFIG.auth.user_email,
         &CONFIG.auth.user_password,
         &report.email_details.dashb_url,
