@@ -17,7 +17,7 @@ use actix_web::{dev::ServerHandle, middleware, web, App, HttpServer};
 use o2_report_generator::{
     cli,
     config::{self, CONFIG},
-    router::{healthz, send_report},
+    router::{self, ReportSecret},
     ReportAttachmentDimensions,
 };
 use std::net::SocketAddr;
@@ -45,6 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
     if CONFIG.auth.user_email.is_empty() || CONFIG.auth.user_password.is_empty() {
         panic!("Report User email and password must be specified");
     }
+    config::check_report_secret(&CONFIG.auth.report_server_secret)?;
 
     // Log configured Chrome PDF parameters
     log::info!("Chrome PDF Configuration:");
@@ -115,9 +116,11 @@ async fn main() -> Result<(), anyhow::Error> {
         format!("{}:{}", ip, CONFIG.http.port).parse()?
     };
     log::info!("starting HTTP server at: {}", haddr);
+    let secret = web::Data::new(ReportSecret(CONFIG.auth.report_server_secret.clone()));
     let server = HttpServer::new(move || {
         App::new()
-            .service(web::scope("/api").service(send_report).service(healthz))
+            .app_data(secret.clone())
+            .configure(router::configure)
             .wrap(middleware::Logger::new(
                 r#"%a "%r" %s %b "%{Content-Length}i" "%{Referer}i" "%{User-Agent}i" %T"#,
             ))

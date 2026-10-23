@@ -1,6 +1,6 @@
 # O2 Report Server
 
-To setup reports `ZO_REPORT_USER_EMAIL`, `ZO_REPORT_USER_PASSWORD` must be specified.  
+To setup reports `ZO_REPORT_USER_EMAIL`, `ZO_REPORT_USER_PASSWORD` and `ZO_REPORT_SERVER_SECRET` must be specified.  
 Following are the ENVs related to chrome and SMTP. * means required -
 
 **ENVs**
@@ -24,6 +24,11 @@ Following are the ENVs related to chrome and SMTP. * means required -
 <tr>
 <td><code>ZO_REPORT_USER_PASSWORD</code>*</td>
 <td>Admin user password</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ZO_REPORT_SERVER_SECRET</code>*</td>
+<td>Shared secret required in the <code>x-o2-report-secret</code> header of every send request; every OpenObserve installation using this report server must set the same value. The server refuses to start without it.</td>
 <td></td>
 </tr>
 
