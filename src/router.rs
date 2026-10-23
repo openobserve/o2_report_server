@@ -18,10 +18,15 @@ use crate::{
     config::{CONFIG, SMTP_CLIENT},
     Report, ReportType,
 };
-use actix_web::{get, http::StatusCode, put, web, HttpRequest, HttpResponse as ActixHttpResponse};
+use actix_web::{
+    dev::Service, get, http::StatusCode, web, HttpRequest, HttpResponse as ActixHttpResponse,
+};
+use futures::future::{ready, Either};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Error;
+
+pub const REPORT_SECRET_HEADER: &str = "x-o2-report-secret";
 
 /// HTTP response
 /// code 200 is success
@@ -70,12 +75,14 @@ impl HttpResponse {
     }
 }
 
+/// Shared secret the main app must send in [`REPORT_SECRET_HEADER`] to trigger a report.
+pub struct ReportSecret(pub String);
+
 #[get("/healthz")]
 pub async fn healthz() -> Result<ActixHttpResponse, Error> {
     Ok(ActixHttpResponse::Ok().body("Server up and running"))
 }
 
-#[put("/{org_id}/reports/{name}/send")]
 pub async fn send_report(
     report: web::Json<Report>,
     path: web::Path<(String, String)>,
@@ -177,5 +184,115 @@ pub async fn send_report(
             Ok(ActixHttpResponse::InternalServerError()
                 .json(HttpResponse::internal_server_error(e.to_string())))
         }
+    }
+}
+
+/// Mounts `/api`; only the send route requires [`REPORT_SECRET_HEADER`] to match [`ReportSecret`].
+pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/api").service(healthz).service(
+            web::resource("/{org_id}/reports/{name}/send")
+                .wrap_fn(|req, srv| {
+                    let authorized = secret_matches(
+                        req.app_data::<web::Data<ReportSecret>>()
+                            .map_or("", |secret| secret.0.as_str()),
+                        req.headers()
+                            .get(REPORT_SECRET_HEADER)
+                            .map(|value| value.as_bytes()),
+                    );
+                    if authorized {
+                        Either::Left(srv.call(req))
+                    } else {
+                        Either::Right(ready(Ok(req.into_response(
+                            ActixHttpResponse::Unauthorized().json(HttpResponse::new(
+                                "invalid report server secret".to_string(),
+                                StatusCode::UNAUTHORIZED.into(),
+                            )),
+                        ))))
+                    }
+                })
+                .route(web::put().to(send_report)),
+        ),
+    );
+}
+
+/// Compares in constant time and treats an empty configured secret as matching nothing. [pure]
+fn secret_matches(configured: &str, provided: Option<&[u8]>) -> bool {
+    let configured = configured.as_bytes();
+    let Some(provided) = provided else {
+        return false;
+    };
+    if configured.is_empty() || configured.len() != provided.len() {
+        return false;
+    }
+    configured
+        .iter()
+        .zip(provided)
+        .fold(0u8, |diff, (a, b)| diff | (a ^ b))
+        == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::{test, App};
+
+    const BODY: &str = r#"{"dashboards":[],"email_details":{"recipients":[],"title":"","name":"","message":"","dashb_url":""}}"#;
+
+    async fn send(configured: &str, header: Option<&str>) -> StatusCode {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(ReportSecret(configured.to_string())))
+                .configure(configure),
+        )
+        .await;
+        let mut req = test::TestRequest::put()
+            .uri("/api/org1/reports/r1/send")
+            .insert_header(("content-type", "application/json"))
+            .set_payload(BODY);
+        if let Some(value) = header {
+            req = req.insert_header((REPORT_SECRET_HEADER, value));
+        }
+        test::call_service(&app, req.to_request()).await.status()
+    }
+
+    #[actix_web::test]
+    async fn send_route_requires_matching_secret() {
+        let cases = [
+            (
+                "wrong secret",
+                "s3cret",
+                Some("nope"),
+                StatusCode::UNAUTHORIZED,
+            ),
+            ("missing header", "s3cret", None, StatusCode::UNAUTHORIZED),
+            (
+                "empty configured secret",
+                "",
+                Some(""),
+                StatusCode::UNAUTHORIZED,
+            ),
+            (
+                "right secret",
+                "s3cret",
+                Some("s3cret"),
+                StatusCode::BAD_REQUEST,
+            ),
+        ];
+        for (name, configured, header, expected) in cases {
+            assert_eq!(send(configured, header).await, expected, "{name}");
+        }
+    }
+
+    #[actix_web::test]
+    async fn healthz_needs_no_secret() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(ReportSecret("s3cret".to_string())))
+                .configure(configure),
+        )
+        .await;
+        let req = test::TestRequest::get().uri("/api/healthz").to_request();
+        assert_eq!(test::call_service(&app, req).await.status(), StatusCode::OK);
     }
 }

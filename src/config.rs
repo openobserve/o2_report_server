@@ -187,6 +187,8 @@ pub struct Auth {
     pub user_email: String,
     #[env_config(name = "ZO_REPORT_USER_PASSWORD", default = "")]
     pub user_password: String,
+    #[env_config(name = "ZO_REPORT_SERVER_SECRET", default = "")]
+    pub report_server_secret: String,
 }
 
 #[derive(EnvConfig)]
@@ -228,6 +230,16 @@ pub struct Common {
 pub fn init() -> Config {
     dotenv().ok();
     Config::init().unwrap()
+}
+
+/// Fails when no shared secret is configured, since the send route would reject every call. [pure]
+pub fn check_report_secret(secret: &str) -> Result<(), anyhow::Error> {
+    if secret.is_empty() {
+        return Err(anyhow::anyhow!(
+            "ZO_REPORT_SERVER_SECRET must be set to the secret shared with the OpenObserve installations"
+        ));
+    }
+    Ok(())
 }
 
 pub async fn get_chrome_launch_options(
@@ -343,3 +355,15 @@ pub static SMTP_CLIENT: Lazy<AsyncSmtpTransport<Tokio1Executor>> = Lazy::new(|| 
     }
     transport_builder.build()
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_report_secret_rejects_empty_secret() {
+        let err = check_report_secret("").unwrap_err();
+        assert!(err.to_string().contains("ZO_REPORT_SERVER_SECRET"));
+        assert!(check_report_secret("s3cret").is_ok());
+    }
+}
